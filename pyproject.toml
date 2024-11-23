@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "genaikeys"
+version = "0.0.1rc1"
+description = "A convenient secret retrieval proxy backed by cloud scale secret vaults"
+authors = ["Ndamulelo Nemakhavhani <ndamulelo@rihonegroup.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "genaikeys", from = "." }]
+keywords = ["secrets", "AI", "cloud", "vault", "security"]
+repository = "https://github.com/ndamulelonemakh/genaikeys"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Topic :: Security",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10, <4.0"
+cryptography = "^43.0.1"
+azure-identity = "^1.17.1"
+azure-keyvault-secrets = "^4.8.0"
+
+[tool.poetry.extras]
+aws = ["boto3"]
+gcp = ["google-cloud-secret-manager"]
+all = ["boto3", "google-cloud-secret-manager"]
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
