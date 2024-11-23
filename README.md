@@ -1,7 +1,8 @@
 # GenAIKeys [WIP]
 
 GenAIKeys is a Python library that streamlines API key management for Generative AI applications by securely
-provisioning and injecting credentials into your codebase.
+storing the keys in cloud secret vaults like [Azure Key Vault](https://azure.microsoft.com/en-us/services/key-vault/), 
+[AWS Secrets Manager](https://aws.amazon.com/secrets-manager/), and [Google Secret Manager](https://cloud.google.com/secret-manager).
 
 > **Disclaimer**: Please exercise caution when using this package in production environments. We recommend that you
 > review the codebase and ensure that it meets your security requirements before deploying it in a production environment.
