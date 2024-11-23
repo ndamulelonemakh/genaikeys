@@ -6,7 +6,7 @@ provisioning and injecting credentials into your codebase.
 > **Disclaimer**: Please exercise caution when using this package in production environments. We recommend that you
 > review the codebase and ensure that it meets your security requirements before deploying it in a production environment.
 
-[![PyPI version](https://badge.fury.io/py/GenAIKeys.svg)](https://badge.fury.io/py/GenAIKeys)
+[![PyPI version](https://badge.fury.io/py/genaikeys.svg)](https://badge.fury.io/py/genaikeys)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
@@ -20,7 +20,7 @@ provisioning and injecting credentials into your codebase.
 ## Installation
 
 ```bash
-pip install GenAIKeys
+pip install genaikeys
 ```
 
 ## Quick Start
