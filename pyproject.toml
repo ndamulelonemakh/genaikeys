@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "genaikeys"
-version = "0.0.1rc1"
+version = "0.0.1rc2"
 description = "A convenient secret retrieval proxy backed by cloud scale secret vaults"
 authors = ["Ndamulelo Nemakhavhani <ndamulelo@rihonegroup.com>"]
 license = "MIT"
