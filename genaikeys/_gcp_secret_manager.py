@@ -1,9 +1,12 @@
 import functools
+import logging
 import os
 
 from google.cloud import secretmanager_v1
 
 from .types import SecretManagerPlugin
+
+logger = logging.getLogger(__name__)
 
 
 class GCPSecretManagerPlugin(SecretManagerPlugin):
@@ -20,7 +23,7 @@ class GCPSecretManagerPlugin(SecretManagerPlugin):
             response = self.client.access_secret_version(request={"name": name})
             return response.payload.data.decode("UTF-8")
         except Exception as e:
-            print(f"Error: {e}")
+            logger.error("Failed to retrieve secret '%s': %s", secret_name, e)
             raise
 
     @functools.lru_cache(maxsize=1, typed=True)

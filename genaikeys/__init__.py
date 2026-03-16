@@ -1,4 +1,3 @@
-import os
 import threading
 from typing import Optional
 
@@ -56,9 +55,7 @@ class SecretKeeper(metaclass=SingletonMeta):
         return cls(secret_store, cache_duration)
 
     def get_secret(self, secret_name: str) -> str:
-        secret_value = self._manager.get_secret(secret_name)
-        os.environ[secret_name] = secret_value
-        return secret_value
+        return self._manager.get_secret(secret_name)
 
     def get(self, secret_name: str) -> str:
         return self.get_secret(secret_name)

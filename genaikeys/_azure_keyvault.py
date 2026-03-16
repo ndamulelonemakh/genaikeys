@@ -22,7 +22,7 @@ import os
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 
-from ._secret_manager import SecretManagerPlugin
+from .types import SecretManagerPlugin
 
 
 class AzureKeyVaultPlugin(SecretManagerPlugin):
@@ -31,7 +31,7 @@ class AzureKeyVaultPlugin(SecretManagerPlugin):
         if not self.vault_url:
             raise ValueError("Azure Key Vault URL must be provided or set in AZURE_KEY_VAULT_URL environment variable")
         credential = DefaultAzureCredential(
-            managed_identity_client_id=os.environ.get("MANGED_IDENTITY_CLIENT_ID"),
+            managed_identity_client_id=os.environ.get("MANAGED_IDENTITY_CLIENT_ID"),
             exclude_interactive_browser_credential=not os.getenv("SECRETKEEPER_DEBUG", "0") == "1"
         )
         # noinspection PyTypeChecker

@@ -1,0 +1,243 @@
+"""Unit tests for SecretKeeper core functionality."""
+
+import threading
+import time
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from genaikeys import SecretKeeper, SecretManagerPlugin
+from genaikeys._secret_manager_default import InMemorySecretManager
+
+
+# ---------------------------------------------------------------------------
+# Helpers / fixtures
+# ---------------------------------------------------------------------------
+
+class _FakePlugin(SecretManagerPlugin):
+    """In-process plugin that returns configurable secrets."""
+
+    def __init__(self, secrets: dict | None = None):
+        self._secrets = secrets or {}
+        self.call_count = 0
+
+    def get_secret(self, secret_name: str) -> str:
+        self.call_count += 1
+        if secret_name not in self._secrets:
+            raise KeyError(f"Secret '{secret_name}' not found")
+        return self._secrets[secret_name]
+
+    def exists(self, secret_name: str, **kwargs) -> bool:
+        return secret_name in self._secrets
+
+    def list_secrets(self, max_results: int = 100) -> list[str]:
+        return list(self._secrets.keys())[:max_results]
+
+
+@pytest.fixture(autouse=True)
+def reset_singleton():
+    """Reset the SecretKeeper singleton between tests."""
+    from genaikeys import SingletonMeta
+    SingletonMeta._instances.clear()
+    yield
+    SingletonMeta._instances.clear()
+
+
+# ---------------------------------------------------------------------------
+# InMemorySecretManager tests
+# ---------------------------------------------------------------------------
+
+class TestInMemorySecretManager:
+    def test_get_secret_returns_value(self):
+        plugin = _FakePlugin({"MY_KEY": "secret-value"})
+        mgr = InMemorySecretManager(plugin, cache_duration=60)
+        assert mgr.get_secret("MY_KEY") == "secret-value"
+
+    def test_caches_on_second_call(self):
+        plugin = _FakePlugin({"MY_KEY": "secret-value"})
+        mgr = InMemorySecretManager(plugin, cache_duration=60)
+        mgr.get_secret("MY_KEY")
+        mgr.get_secret("MY_KEY")
+        assert plugin.call_count == 1
+
+    def test_cache_expires(self):
+        plugin = _FakePlugin({"MY_KEY": "secret-value"})
+        mgr = InMemorySecretManager(plugin, cache_duration=0)
+        mgr.get_secret("MY_KEY")
+        time.sleep(0.01)
+        mgr.get_secret("MY_KEY")
+        assert plugin.call_count == 2
+
+    def test_invalidate_specific_key(self):
+        plugin = _FakePlugin({"A": "1", "B": "2"})
+        mgr = InMemorySecretManager(plugin, cache_duration=60)
+        mgr.get_secret("A")
+        mgr.get_secret("B")
+        mgr.invalidate_cache("A")
+        mgr.get_secret("A")
+        mgr.get_secret("B")
+        # A was fetched again; B was served from cache
+        assert plugin.call_count == 3
+
+    def test_invalidate_all_keys(self):
+        plugin = _FakePlugin({"A": "1", "B": "2"})
+        mgr = InMemorySecretManager(plugin, cache_duration=60)
+        mgr.get_secret("A")
+        mgr.get_secret("B")
+        mgr.invalidate_cache()
+        mgr.get_secret("A")
+        mgr.get_secret("B")
+        assert plugin.call_count == 4
+
+    def test_thread_safety(self):
+        """Multiple threads should not corrupt the cache."""
+        plugin = _FakePlugin({"K": "v"})
+        mgr = InMemorySecretManager(plugin, cache_duration=60)
+        errors = []
+
+        def worker():
+            try:
+                for _ in range(50):
+                    mgr.get_secret("K")
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [threading.Thread(target=worker) for _ in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        assert mgr.get_secret("K") == "v"
+
+
+# ---------------------------------------------------------------------------
+# SecretKeeper tests
+# ---------------------------------------------------------------------------
+
+class TestSecretKeeper:
+    def test_get_returns_secret(self):
+        plugin = _FakePlugin({"MY_SECRET": "abc123"})
+        sk = SecretKeeper(plugin)
+        assert sk.get("MY_SECRET") == "abc123"
+
+    def test_get_secret_alias(self):
+        plugin = _FakePlugin({"MY_SECRET": "abc123"})
+        sk = SecretKeeper(plugin)
+        assert sk.get_secret("MY_SECRET") == "abc123"
+
+    def test_get_does_not_store_in_environ(self):
+        import os
+        plugin = _FakePlugin({"MY_SECRET": "abc123"})
+        sk = SecretKeeper(plugin)
+        sk.get("MY_SECRET")
+        assert "MY_SECRET" not in os.environ
+
+    def test_singleton_returns_same_instance(self):
+        plugin = _FakePlugin({"K": "v"})
+        sk1 = SecretKeeper(plugin)
+        sk2 = SecretKeeper(plugin)
+        assert sk1 is sk2
+
+    def test_clear_specific_key(self):
+        plugin = _FakePlugin({"K": "v"})
+        sk = SecretKeeper(plugin)
+        sk.get("K")
+        sk.clear("K")
+        sk.get("K")
+        assert plugin.call_count == 2
+
+    def test_clear_all(self):
+        plugin = _FakePlugin({"A": "1", "B": "2"})
+        sk = SecretKeeper(plugin)
+        sk.get("A")
+        sk.get("B")
+        sk.clear()
+        sk.get("A")
+        sk.get("B")
+        assert plugin.call_count == 4
+
+    def test_get_openai_key(self):
+        plugin = _FakePlugin({"OPENAI_API_KEY": "sk-openai"})
+        sk = SecretKeeper(plugin)
+        assert sk.get_openai_key() == "sk-openai"
+
+    def test_get_anthropic_key(self):
+        plugin = _FakePlugin({"ANTHROPIC_API_KEY": "sk-ant"})
+        sk = SecretKeeper(plugin)
+        assert sk.get_anthropic_key() == "sk-ant"
+
+    def test_get_gemini_key(self):
+        plugin = _FakePlugin({"GEMINI_API_KEY": "ai-gemini"})
+        sk = SecretKeeper(plugin)
+        assert sk.get_gemini_key() == "ai-gemini"
+
+    def test_missing_secret_raises(self):
+        plugin = _FakePlugin({})
+        sk = SecretKeeper(plugin)
+        with pytest.raises(KeyError):
+            sk.get("DOES_NOT_EXIST")
+
+
+# ---------------------------------------------------------------------------
+# SecretManagerPlugin base class tests
+# ---------------------------------------------------------------------------
+
+class TestSecretManagerPlugin:
+    def test_exists_raises_not_implemented(self):
+        class Minimal(SecretManagerPlugin):
+            def get_secret(self, secret_name: str) -> str:
+                return "x"
+
+        m = Minimal()
+        with pytest.raises(NotImplementedError):
+            m.exists("k")
+
+    def test_list_secrets_raises_not_implemented(self):
+        class Minimal(SecretManagerPlugin):
+            def get_secret(self, secret_name: str) -> str:
+                return "x"
+
+        m = Minimal()
+        with pytest.raises(NotImplementedError):
+            m.list_secrets()
+
+
+# ---------------------------------------------------------------------------
+# SecretKeeper factory methods (mocked cloud SDKs)
+# ---------------------------------------------------------------------------
+
+class TestSecretKeeperFactories:
+    def test_azure_factory_raises_without_url(self):
+        with pytest.raises(ValueError, match="Azure Key Vault URL"):
+            with patch.dict("os.environ", {}, clear=True):
+                SecretKeeper.azure(vault_url=None)
+
+    def test_aws_factory_raises_without_region(self):
+        with pytest.raises(ValueError, match="AWS region"):
+            with patch.dict("os.environ", {}, clear=True):
+                SecretKeeper.aws(region_name=None)
+
+    def test_azure_factory_uses_env_var(self):
+        mock_plugin = MagicMock()
+        mock_plugin.get_secret.return_value = "val"
+        with patch("genaikeys._azure_keyvault.AzureKeyVaultPlugin", return_value=mock_plugin) as MockAzure:
+            with patch.dict("os.environ", {"AZURE_KEY_VAULT_URL": "https://my-vault.vault.azure.net/"}):
+                sk = SecretKeeper.azure()
+                MockAzure.assert_called_once_with(vault_url="https://my-vault.vault.azure.net/")
+
+    def test_aws_factory_uses_env_var(self):
+        mock_plugin = MagicMock()
+        mock_plugin.get_secret.return_value = "val"
+        with patch("genaikeys._aws_secret_manager.AWSSecretsManagerPlugin", return_value=mock_plugin) as MockAWS:
+            with patch.dict("os.environ", {"AWS_DEFAULT_REGION": "us-east-1"}):
+                sk = SecretKeeper.aws()
+                MockAWS.assert_called_once_with(region_name="us-east-1")
+
+    def test_gcp_factory_uses_project_id(self):
+        mock_plugin = MagicMock()
+        mock_plugin.get_secret.return_value = "val"
+        with patch("genaikeys._gcp_secret_manager.GCPSecretManagerPlugin", return_value=mock_plugin) as MockGCP:
+            sk = SecretKeeper.gcp(project_id="my-project")
+            MockGCP.assert_called_once_with(project_id="my-project")

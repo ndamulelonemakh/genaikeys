@@ -1,27 +1,36 @@
-# GenAIKeys [WIP]
+# GenAIKeys
 
 GenAIKeys is a Python library that streamlines API key management for Generative AI applications by securely
-storing the keys in cloud secret vaults like [Azure Key Vault](https://azure.microsoft.com/en-us/services/key-vault/), 
+storing the keys in cloud secret vaults like [Azure Key Vault](https://azure.microsoft.com/en-us/services/key-vault/),
 [AWS Secrets Manager](https://aws.amazon.com/secrets-manager/), and [Google Secret Manager](https://cloud.google.com/secret-manager).
 
-> **Disclaimer**: Please exercise caution when using this package in production environments. We recommend that you
-> review the codebase and ensure that it meets your security requirements before deploying it in a production environment.
-
 [![PyPI version](https://badge.fury.io/py/genaikeys.svg)](https://badge.fury.io/py/genaikeys)
+[![CI](https://github.com/ndamulelonemakh/genaikeys/actions/workflows/ci.yml/badge.svg)](https://github.com/ndamulelonemakh/genaikeys/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
 
-- 🔐 Secure API key management for GenAI services
-- 🚀 Zero environment variable configuration
-- ⚡️ Direct integration with cloud secret vaults
-- 🔌 Built-in support for OpenAI, Anthropic, and Google Gemini
-- 🛠 Extensible architecture for custom secret backends
+- Secure API key management for GenAI services
+- Zero hard-coded credentials — keys are read from cloud vaults at runtime
+- Built-in support for OpenAI, Anthropic, and Google Gemini convenience methods
+- In-memory caching with configurable TTL to minimise vault API calls
+- Extensible plugin architecture for custom secret backends
+- Thread-safe by design
 
 ## Installation
 
 ```bash
+# Azure (default)
 pip install genaikeys
+
+# AWS
+pip install "genaikeys[aws]"
+
+# GCP
+pip install "genaikeys[gcp]"
+
+# All backends
+pip install "genaikeys[all]"
 ```
 
 ## Quick Start
@@ -29,50 +38,103 @@ pip install genaikeys
 ```python
 from genaikeys import SecretKeeper
 
-# Initialize GenAIKeys
-skp = SecretKeeper.from_defaults()
+# Azure Key Vault (requires AZURE_KEY_VAULT_URL env var)
+skp = SecretKeeper.azure()
 
-# Get API keys directly
-api_key = skp.get('huggingface-api-key')
+# Retrieve any secret by name
+api_key = skp.get("huggingface-api-key")
 
-# Use convenience methods
-openai_key = skp.get_openai_key()
-anthropic_key = skp.get_anthropic_key()
-gemini_key = skp.get_gemini_key()
+# Convenience methods for popular AI providers
+openai_key  = skp.get_openai_key()    # looks up "OPENAI_API_KEY"
+anthropic_key = skp.get_anthropic_key()  # looks up "ANTHROPIC_API_KEY"
+gemini_key  = skp.get_gemini_key()    # looks up "GEMINI_API_KEY"
 ```
 
 ## Configuration
 
-* By default, GenAIKeys uses the `Azure Key Vault` secret backend. You can configure the secret backend by setting
-  the `SECRET_KEEPER_BACKEND` environment variable to one of the following values:
-    - `AZURE`
-    - `AWS`
-    - `GCP`
-* We recommend setting the `SECRET_KEEPER_BACKEND` environment variable in a persistent configuration file like
-  `.bashrc` or `.zshrc`.*
+### Azure Key Vault
 
-* You will also need to provide the configurations for the secret backend you choose.
+```bash
+export AZURE_KEY_VAULT_URL="https://my-vault.vault.azure.net/"
+# Optional — only needed for User-Assigned Managed Identity
+export MANAGED_IDENTITY_CLIENT_ID="<client-id>"
+```
 
-#### Azure Key Vault
+```python
+from genaikeys import SecretKeeper
 
-- The following environment variables are required for the `Azure Key Vault` secret backend:
-    - `AZURE_KEY_VAULT_URL`
-- Optionally you can also provide the following environment variables:
-    - `MANGED_IDENTITY_CLIENT_ID` (for User Assigned Managed Identity authentication)
+sk = SecretKeeper.azure(vault_url="https://my-vault.vault.azure.net/")
+key = sk.get("OPENAI_API_KEY")
+```
 
-#### AWS Secrets Manager [WIP]
+Authentication uses [DefaultAzureCredential](https://docs.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential),
+which works with Managed Identity, environment variables, `az login`, and more.
 
-#### Google Secret Manager [WIP]
+### AWS Secrets Manager
 
-## Documentation
+```bash
+export AWS_DEFAULT_REGION="us-east-1"
+# Standard AWS credential env vars (AWS_ACCESS_KEY_ID, etc.) or IAM role
+```
 
-For detailed usage instructions, API reference, and advanced configuration options, visit
-our [documentation](https://docs.GenAIKeys.dev).
+```python
+from genaikeys import SecretKeeper
+
+sk = SecretKeeper.aws(region_name="us-east-1")
+key = sk.get("OPENAI_API_KEY")
+```
+
+### Google Secret Manager
+
+```bash
+export GOOGLE_CLOUD_PROJECT="my-gcp-project"
+# Standard GCP credential setup (GOOGLE_APPLICATION_CREDENTIALS or ADC)
+```
+
+```python
+from genaikeys import SecretKeeper
+
+sk = SecretKeeper.gcp(project_id="my-gcp-project")
+key = sk.get("OPENAI_API_KEY")
+```
+
+## Caching
+
+Secrets are cached in-process for `cache_duration` seconds (default 3600). To tune:
+
+```python
+sk = SecretKeeper.azure(cache_duration=300)   # 5-minute TTL
+
+# Invalidate a single key
+sk.clear("OPENAI_API_KEY")
+
+# Invalidate everything
+sk.clear()
+```
+
+## Custom Backend
+
+Implement `SecretManagerPlugin` to add any secret store:
+
+```python
+from genaikeys import SecretKeeper, SecretManagerPlugin
+
+class MyPlugin(SecretManagerPlugin):
+    def get_secret(self, secret_name: str) -> str:
+        # your retrieval logic here
+        return "my-secret-value"
+
+sk = SecretKeeper(MyPlugin())
+```
 
 ## Contributing
 
-We welcome contributions! Please see our [contribution guidelines](CONTRIBUTING.md) before submitting pull requests.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE).

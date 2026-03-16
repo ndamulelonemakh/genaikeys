@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "genaikeys"
-version = "0.0.1rc2"
+version = "0.1.0"
 description = "A convenient secret retrieval proxy backed by cloud scale secret vaults"
 authors = ["Ndamulelo Nemakhavhani <ndamulelo@rihonegroup.com>"]
 license = "MIT"
@@ -21,6 +21,18 @@ python = ">=3.10, <4.0"
 cryptography = "^43.0.1"
 azure-identity = "^1.17.1"
 azure-keyvault-secrets = "^4.8.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+pytest-cov = "^5.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--tb=short"
+
+[tool.coverage.run]
+source = ["genaikeys"]
+omit = ["tests/*"]
 
 [tool.poetry.extras]
 aws = ["boto3"]
