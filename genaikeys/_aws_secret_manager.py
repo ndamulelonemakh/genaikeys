@@ -7,12 +7,22 @@ from .types import SecretManagerPlugin
 
 
 class AWSSecretsManagerPlugin(SecretManagerPlugin):
-    def __init__(self, region_name: str | None = None):
+    def __init__(self, region_name: str | None = None, profile_name: str | None = None):
         overrides = {}
         if region_name is not None:
             overrides["aws_default_region"] = region_name
+        if profile_name is not None:
+            overrides["aws_profile"] = profile_name
         cfg = AWSSettings(**overrides)
-        self.client = boto3.client('secretsmanager', region_name=cfg.aws_default_region)
+        # Use a Session so that profile_name (SSO / IAM Identity Center) is applied.
+        # All other keyless mechanisms (EC2 instance profile, ECS task role, Lambda
+        # execution role, IRSA/EKS web identity) are picked up automatically by boto3's
+        # credential chain and require no additional configuration.
+        session = boto3.Session(
+            profile_name=cfg.aws_profile,
+            region_name=cfg.aws_default_region,
+        )
+        self.client = session.client('secretsmanager')
 
     def get_secret(self, secret_name: str) -> str:
         response = self.client.get_secret_value(SecretId=secret_name)

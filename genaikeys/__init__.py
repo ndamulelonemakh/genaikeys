@@ -33,10 +33,18 @@ class SecretKeeper(metaclass=SingletonMeta):
         return cls.from_defaults(cache_duration, vault_url)
 
     @classmethod
-    def aws(cls, cache_duration: int = 3600, region_name: Optional[str] = None):
-        """Create a SecretKeeper backed by AWS Secrets Manager."""
+    def aws(cls, cache_duration: int = 3600, region_name: Optional[str] = None,
+            profile_name: Optional[str] = None):
+        """Create a SecretKeeper backed by AWS Secrets Manager.
+
+        profile_name activates an SSO / IAM Identity Center profile from
+        ~/.aws/config (equivalent to setting AWS_PROFILE).  All other keyless
+        auth mechanisms (EC2 instance profile, ECS task role, Lambda execution
+        role, IRSA/EKS) are detected automatically by boto3 with no extra args.
+        """
         from ._aws_secret_manager import AWSSecretsManagerPlugin
-        return cls(AWSSecretsManagerPlugin(region_name=region_name), cache_duration)
+        return cls(AWSSecretsManagerPlugin(region_name=region_name, profile_name=profile_name),
+                   cache_duration)
 
     @classmethod
     def gcp(cls, cache_duration: int = 3600, project_id: Optional[str] = None):

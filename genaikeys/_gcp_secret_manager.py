@@ -1,3 +1,31 @@
+"""
+Google Secret Manager plugin for SecretKeeper.
+
+Uses Application Default Credentials (ADC) which resolves in this order:
+
+  1. GOOGLE_APPLICATION_CREDENTIALS env var → JSON file (service account key OR
+     Workload Identity Federation config — the WIF config contains no secrets,
+     only metadata instructing the library how to exchange an external OIDC/SAML
+     token for a GCP access token).
+  2. ~/.config/gcloud/application_default_credentials.json  – created by
+     ``gcloud auth application-default login`` (developer workstations).
+  3. Metadata server (169.254.169.254)   – ✓ automatic on GCE, GKE, Cloud Run,
+     Cloud Functions, App Engine, Vertex AI.  The attached service account token
+     is fetched transparently; no credentials stored in code or config.
+
+Keyless options:
+    GKE Workload Identity – bind a Kubernetes SA to a GCP SA via IAM; the pod's
+        projected OIDC token is exchanged for a GCP token via the metadata server.
+    Workload Identity Federation – run on AWS / Azure / GitHub Actions / any OIDC
+        IdP; generate a credential config with ``gcloud iam workload-identity-pools
+        create-cred-config`` and set GOOGLE_APPLICATION_CREDENTIALS to point at it.
+
+Configuration:
+    GOOGLE_CLOUD_PROJECT          – GCP project ID (required)
+    GOOGLE_APPLICATION_CREDENTIALS – Path to credential JSON (optional; ADC reads
+                                     this automatically)
+"""
+
 import functools
 import logging
 

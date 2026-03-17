@@ -104,6 +104,21 @@ class TestAWSSettings:
                 AWSSettings()
         assert "aws_default_region" in str(exc_info.value)
 
+    def test_profile_defaults_to_none(self):
+        with patch.dict("os.environ", {"AWS_DEFAULT_REGION": "eu-west-1"}):
+            cfg = AWSSettings()
+        assert cfg.aws_profile is None
+
+    def test_profile_reads_from_env(self):
+        with patch.dict("os.environ", {"AWS_DEFAULT_REGION": "eu-west-1", "AWS_PROFILE": "my-sso"}):
+            cfg = AWSSettings()
+        assert cfg.aws_profile == "my-sso"
+
+    def test_profile_constructor_override(self):
+        with patch.dict("os.environ", {"AWS_DEFAULT_REGION": "eu-west-1", "AWS_PROFILE": "env-profile"}):
+            cfg = AWSSettings(aws_profile="override-profile")
+        assert cfg.aws_profile == "override-profile"
+
 
 class TestGCPSettings:
     def test_reads_from_env(self):
@@ -121,6 +136,43 @@ class TestGCPSettings:
             with pytest.raises(ValidationError) as exc_info:
                 GCPSettings()
         assert "google_cloud_project" in str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# AWSSecretsManagerPlugin – boto3.Session wiring
+# ---------------------------------------------------------------------------
+
+class TestAWSSecretsManagerPlugin:
+    def test_session_created_without_profile(self, mock_cloud_backends):
+        """Without a profile, Session is created with profile_name=None."""
+        import genaikeys._aws_secret_manager as _aws
+        mock_session = MagicMock()
+        mock_session.client.return_value = MagicMock()
+        with patch.object(_aws.boto3, "Session", return_value=mock_session) as MockSession:
+            with patch.dict("os.environ", {"AWS_DEFAULT_REGION": "eu-west-1"}):
+                _aws.AWSSecretsManagerPlugin(region_name="eu-west-1")
+            MockSession.assert_called_once_with(profile_name=None, region_name="eu-west-1")
+            mock_session.client.assert_called_once_with("secretsmanager")
+
+    def test_session_created_with_profile(self, mock_cloud_backends):
+        """With a profile, Session is created with the given profile_name (SSO support)."""
+        import genaikeys._aws_secret_manager as _aws
+        mock_session = MagicMock()
+        mock_session.client.return_value = MagicMock()
+        with patch.object(_aws.boto3, "Session", return_value=mock_session) as MockSession:
+            with patch.dict("os.environ", {"AWS_DEFAULT_REGION": "eu-west-1"}):
+                _aws.AWSSecretsManagerPlugin(region_name="eu-west-1", profile_name="my-sso")
+            MockSession.assert_called_once_with(profile_name="my-sso", region_name="eu-west-1")
+
+    def test_profile_from_env_var(self, mock_cloud_backends):
+        """AWS_PROFILE env var is picked up via AWSSettings.aws_profile."""
+        import genaikeys._aws_secret_manager as _aws
+        mock_session = MagicMock()
+        mock_session.client.return_value = MagicMock()
+        with patch.object(_aws.boto3, "Session", return_value=mock_session) as MockSession:
+            with patch.dict("os.environ", {"AWS_DEFAULT_REGION": "eu-west-1", "AWS_PROFILE": "sso-dev"}):
+                _aws.AWSSecretsManagerPlugin(region_name="eu-west-1")
+            MockSession.assert_called_once_with(profile_name="sso-dev", region_name="eu-west-1")
 
 
 # ---------------------------------------------------------------------------
@@ -350,7 +402,7 @@ class TestSecretKeeperFactories:
         with patch.object(_aws, "AWSSecretsManagerPlugin", return_value=mock_plugin) as MockPlugin:
             with patch.dict("os.environ", {}, clear=True):
                 SecretKeeper.aws(region_name="eu-west-1")
-            MockPlugin.assert_called_once_with(region_name="eu-west-1")
+            MockPlugin.assert_called_once_with(region_name="eu-west-1", profile_name=None)
 
     def test_aws_factory_passes_none_when_region_omitted(self, mock_cloud_backends):
         """When region_name is omitted the factory passes None; pydantic reads the env var."""
@@ -359,7 +411,16 @@ class TestSecretKeeperFactories:
         with patch.object(_aws, "AWSSecretsManagerPlugin", return_value=mock_plugin) as MockPlugin:
             with patch.dict("os.environ", {"AWS_DEFAULT_REGION": "us-east-1"}):
                 SecretKeeper.aws()
-            MockPlugin.assert_called_once_with(region_name=None)
+            MockPlugin.assert_called_once_with(region_name=None, profile_name=None)
+
+    def test_aws_factory_with_profile_name(self, mock_cloud_backends):
+        """profile_name is forwarded to AWSSecretsManagerPlugin for SSO support."""
+        import genaikeys._aws_secret_manager as _aws
+        mock_plugin = MagicMock()
+        with patch.object(_aws, "AWSSecretsManagerPlugin", return_value=mock_plugin) as MockPlugin:
+            with patch.dict("os.environ", {"AWS_DEFAULT_REGION": "eu-west-1"}):
+                SecretKeeper.aws(profile_name="my-sso-profile")
+            MockPlugin.assert_called_once_with(region_name=None, profile_name="my-sso-profile")
 
     def test_gcp_factory_with_explicit_project(self, mock_cloud_backends):
         """Explicit project_id is forwarded to GCPSecretManagerPlugin unchanged."""

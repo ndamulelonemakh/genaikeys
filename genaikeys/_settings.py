@@ -32,13 +32,27 @@ class AzureKeyVaultSettings(BaseSettings):
 class AWSSettings(BaseSettings):
     """Configuration for the AWS Secrets Manager backend.
 
+    Keyless auth (no static credentials required):
+        On EC2, ECS, Lambda, and EKS (IRSA) boto3 fetches temporary credentials
+        from the instance/task metadata service automatically — no env vars needed
+        beyond the region.  For SSO / IAM Identity Center on a developer workstation,
+        set AWS_PROFILE to a profile configured via ``aws configure sso``.
+
     Environment variables:
         AWS_DEFAULT_REGION  – AWS region where secrets are stored (required)
+        AWS_PROFILE         – Named profile from ~/.aws/config (optional; activates
+                              SSO / IAM Identity Center credentials for that profile)
+
+    Note: boto3 also auto-reads AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY /
+    AWS_SESSION_TOKEN, AWS_ROLE_ARN + AWS_WEB_IDENTITY_TOKEN_FILE (IRSA/EKS),
+    and the container-credential env vars (ECS / EKS Pod Identity) directly —
+    none of those require any additional configuration here.
     """
 
     model_config = SettingsConfigDict(extra="ignore")
 
     aws_default_region: str
+    aws_profile: Optional[str] = None
 
 
 class GCPSettings(BaseSettings):
