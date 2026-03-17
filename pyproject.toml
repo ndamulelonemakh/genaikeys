@@ -29,7 +29,13 @@ pytest-cov = "^5.0"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--tb=short"
+addopts = "--tb=short -m 'not e2e'"
+markers = [
+    "e2e: live tests that make real network calls (skipped by default; run with -m e2e)",
+    "aws: e2e tests for the AWS Secrets Manager backend",
+    "azure: e2e tests for the Azure Key Vault backend",
+    "gcp: e2e tests for the GCP Secret Manager backend",
+]
 
 [tool.coverage.run]
 source = ["genaikeys"]
