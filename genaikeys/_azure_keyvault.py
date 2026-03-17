@@ -4,36 +4,38 @@ Azure Key Vault plugin for SecretKeeper.
 This module provides integration with Azure Key Vault for secret management.
 It uses Azure's DefaultAzureCredential for authentication with RBAC.
 
-Configuration:
-    The following environment variables can be used:
-    - AZURE_KEY_VAULT_URL: URL of your Azure Key Vault (required if not passed to constructor)
-    - MANAGED_IDENTITY_CLIENT_ID: Client ID for managed identity authentication (optional)
+Configuration (via environment variables or constructor kwargs):
+    AZURE_KEY_VAULT_URL         – URL of your Azure Key Vault (required)
+    MANAGED_IDENTITY_CLIENT_ID  – Client ID for User-Assigned Managed Identity (optional)
+    SECRETKEEPER_DEBUG          – Set to "1" to allow interactive browser login (optional)
 
 Example:
     >>> from genaikeys import SecretKeeper
-    >>> # Using environment variables
     >>> skp = SecretKeeper.azure(vault_url="https://my-vault.vault.azure.net/")
     >>> secret = skp.get("my-secret")
 """
 
 import functools
-import os
 
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 
+from ._settings import AzureKeyVaultSettings
 from .types import SecretManagerPlugin
 
 
 class AzureKeyVaultPlugin(SecretManagerPlugin):
     def __init__(self, vault_url: str | None = None):
-        self.vault_url = vault_url or os.environ.get("AZURE_KEY_VAULT_URL")
-        if not self.vault_url:
-            raise ValueError("Azure Key Vault URL must be provided or set in AZURE_KEY_VAULT_URL environment variable")
+        overrides = {}
+        if vault_url is not None:
+            overrides["azure_key_vault_url"] = vault_url
+        cfg = AzureKeyVaultSettings(**overrides)
+
         credential = DefaultAzureCredential(
-            managed_identity_client_id=os.environ.get("MANAGED_IDENTITY_CLIENT_ID"),
-            exclude_interactive_browser_credential=not os.getenv("SECRETKEEPER_DEBUG", "0") == "1"
+            managed_identity_client_id=cfg.managed_identity_client_id,
+            exclude_interactive_browser_credential=not cfg.secretkeeper_debug,
         )
+        self.vault_url = cfg.azure_key_vault_url
         # noinspection PyTypeChecker
         self.client = SecretClient(vault_url=self.vault_url, credential=credential)
 

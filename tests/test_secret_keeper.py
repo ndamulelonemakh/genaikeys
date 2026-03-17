@@ -5,9 +5,11 @@ import time
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from genaikeys import SecretKeeper, SecretManagerPlugin
 from genaikeys._secret_manager_default import InMemorySecretManager
+from genaikeys._settings import AWSSettings, AzureKeyVaultSettings, GCPSettings
 
 
 # ---------------------------------------------------------------------------
@@ -41,6 +43,84 @@ def reset_singleton():
     SingletonMeta._instances.clear()
     yield
     SingletonMeta._instances.clear()
+
+
+# ---------------------------------------------------------------------------
+# Pydantic settings tests
+# ---------------------------------------------------------------------------
+
+class TestAzureKeyVaultSettings:
+    def test_reads_from_env(self):
+        with patch.dict("os.environ", {"AZURE_KEY_VAULT_URL": "https://vault.azure.net/"}):
+            cfg = AzureKeyVaultSettings()
+        assert cfg.azure_key_vault_url == "https://vault.azure.net/"
+        assert cfg.managed_identity_client_id is None
+        assert cfg.secretkeeper_debug is False
+
+    def test_constructor_override_takes_precedence(self):
+        with patch.dict("os.environ", {"AZURE_KEY_VAULT_URL": "https://env-vault.azure.net/"}):
+            cfg = AzureKeyVaultSettings(azure_key_vault_url="https://override.azure.net/")
+        assert cfg.azure_key_vault_url == "https://override.azure.net/"
+
+    def test_optional_fields(self):
+        with patch.dict("os.environ", {
+            "AZURE_KEY_VAULT_URL": "https://vault.azure.net/",
+            "MANAGED_IDENTITY_CLIENT_ID": "my-client-id",
+            "SECRETKEEPER_DEBUG": "1",
+        }):
+            cfg = AzureKeyVaultSettings()
+        assert cfg.managed_identity_client_id == "my-client-id"
+        assert cfg.secretkeeper_debug is True
+
+    def test_raises_when_url_missing(self):
+        with patch.dict("os.environ", {}, clear=True):
+            with pytest.raises(ValidationError) as exc_info:
+                AzureKeyVaultSettings()
+        assert "azure_key_vault_url" in str(exc_info.value)
+
+    def test_extra_env_vars_ignored(self):
+        with patch.dict("os.environ", {
+            "AZURE_KEY_VAULT_URL": "https://vault.azure.net/",
+            "SOME_RANDOM_VAR": "noise",
+        }):
+            cfg = AzureKeyVaultSettings()  # should not raise
+        assert cfg.azure_key_vault_url == "https://vault.azure.net/"
+
+
+class TestAWSSettings:
+    def test_reads_from_env(self):
+        with patch.dict("os.environ", {"AWS_DEFAULT_REGION": "eu-west-1"}):
+            cfg = AWSSettings()
+        assert cfg.aws_default_region == "eu-west-1"
+
+    def test_constructor_override_takes_precedence(self):
+        with patch.dict("os.environ", {"AWS_DEFAULT_REGION": "us-east-1"}):
+            cfg = AWSSettings(aws_default_region="ap-southeast-1")
+        assert cfg.aws_default_region == "ap-southeast-1"
+
+    def test_raises_when_region_missing(self):
+        with patch.dict("os.environ", {}, clear=True):
+            with pytest.raises(ValidationError) as exc_info:
+                AWSSettings()
+        assert "aws_default_region" in str(exc_info.value)
+
+
+class TestGCPSettings:
+    def test_reads_from_env(self):
+        with patch.dict("os.environ", {"GOOGLE_CLOUD_PROJECT": "my-project"}):
+            cfg = GCPSettings()
+        assert cfg.google_cloud_project == "my-project"
+
+    def test_constructor_override_takes_precedence(self):
+        with patch.dict("os.environ", {"GOOGLE_CLOUD_PROJECT": "env-project"}):
+            cfg = GCPSettings(google_cloud_project="override-project")
+        assert cfg.google_cloud_project == "override-project"
+
+    def test_raises_when_project_missing(self):
+        with patch.dict("os.environ", {}, clear=True):
+            with pytest.raises(ValidationError) as exc_info:
+                GCPSettings()
+        assert "google_cloud_project" in str(exc_info.value)
 
 
 # ---------------------------------------------------------------------------
@@ -205,39 +285,96 @@ class TestSecretManagerPlugin:
 
 
 # ---------------------------------------------------------------------------
-# SecretKeeper factory methods (mocked cloud SDKs)
+# SecretKeeper factory methods
+#
+# All tests use the ``mock_cloud_backends`` fixture (conftest.py) which stubs
+# the cloud SDK packages in sys.modules so the backend modules can be imported
+# without the real azure / boto3 / google packages being installed.
+#
+# For "raises" tests the real AzureKeyVaultPlugin constructor runs; pydantic
+# raises ValidationError before any cloud SDK call is made.
+#
+# For "creates plugin" tests we pre-import the backend module (which loads
+# cleanly under stubbed SDKs) and then use patch.object so the factory picks
+# up the mock via its lazy ``from ._xxx import Plugin`` import.
 # ---------------------------------------------------------------------------
 
 class TestSecretKeeperFactories:
-    def test_azure_factory_raises_without_url(self):
-        with pytest.raises(ValueError, match="Azure Key Vault URL"):
+    # --- missing config → ValidationError ---
+
+    def test_azure_factory_raises_without_url(self, mock_cloud_backends):
+        """Missing AZURE_KEY_VAULT_URL → pydantic ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
             with patch.dict("os.environ", {}, clear=True):
                 SecretKeeper.azure(vault_url=None)
+        assert "azure_key_vault_url" in str(exc_info.value)
 
-    def test_aws_factory_raises_without_region(self):
-        with pytest.raises(ValueError, match="AWS region"):
+    def test_aws_factory_raises_without_region(self, mock_cloud_backends):
+        """Missing AWS_DEFAULT_REGION → pydantic ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
             with patch.dict("os.environ", {}, clear=True):
                 SecretKeeper.aws(region_name=None)
+        assert "aws_default_region" in str(exc_info.value)
 
-    def test_azure_factory_uses_env_var(self):
+    def test_gcp_factory_raises_without_project(self, mock_cloud_backends):
+        """Missing GOOGLE_CLOUD_PROJECT → pydantic ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
+            with patch.dict("os.environ", {}, clear=True):
+                SecretKeeper.gcp(project_id=None)
+        assert "google_cloud_project" in str(exc_info.value)
+
+    # --- factory plumbing: correct kwargs reach the plugin ---
+
+    def test_azure_factory_with_explicit_url(self, mock_cloud_backends):
+        """Explicit vault_url is forwarded to AzureKeyVaultPlugin unchanged."""
+        import genaikeys._azure_keyvault as _az
         mock_plugin = MagicMock()
-        mock_plugin.get_secret.return_value = "val"
-        with patch("genaikeys._azure_keyvault.AzureKeyVaultPlugin", return_value=mock_plugin) as MockAzure:
+        with patch.object(_az, "AzureKeyVaultPlugin", return_value=mock_plugin) as MockPlugin:
+            with patch.dict("os.environ", {}, clear=True):
+                SecretKeeper.azure(vault_url="https://my-vault.vault.azure.net/")
+            MockPlugin.assert_called_once_with(vault_url="https://my-vault.vault.azure.net/")
+
+    def test_azure_factory_passes_none_when_url_omitted(self, mock_cloud_backends):
+        """When vault_url is omitted the factory passes None; pydantic reads the env var."""
+        import genaikeys._azure_keyvault as _az
+        mock_plugin = MagicMock()
+        with patch.object(_az, "AzureKeyVaultPlugin", return_value=mock_plugin) as MockPlugin:
             with patch.dict("os.environ", {"AZURE_KEY_VAULT_URL": "https://my-vault.vault.azure.net/"}):
-                sk = SecretKeeper.azure()
-                MockAzure.assert_called_once_with(vault_url="https://my-vault.vault.azure.net/")
+                SecretKeeper.azure()
+            MockPlugin.assert_called_once_with(vault_url=None)
 
-    def test_aws_factory_uses_env_var(self):
+    def test_aws_factory_with_explicit_region(self, mock_cloud_backends):
+        """Explicit region_name is forwarded to AWSSecretsManagerPlugin unchanged."""
+        import genaikeys._aws_secret_manager as _aws
         mock_plugin = MagicMock()
-        mock_plugin.get_secret.return_value = "val"
-        with patch("genaikeys._aws_secret_manager.AWSSecretsManagerPlugin", return_value=mock_plugin) as MockAWS:
+        with patch.object(_aws, "AWSSecretsManagerPlugin", return_value=mock_plugin) as MockPlugin:
+            with patch.dict("os.environ", {}, clear=True):
+                SecretKeeper.aws(region_name="eu-west-1")
+            MockPlugin.assert_called_once_with(region_name="eu-west-1")
+
+    def test_aws_factory_passes_none_when_region_omitted(self, mock_cloud_backends):
+        """When region_name is omitted the factory passes None; pydantic reads the env var."""
+        import genaikeys._aws_secret_manager as _aws
+        mock_plugin = MagicMock()
+        with patch.object(_aws, "AWSSecretsManagerPlugin", return_value=mock_plugin) as MockPlugin:
             with patch.dict("os.environ", {"AWS_DEFAULT_REGION": "us-east-1"}):
-                sk = SecretKeeper.aws()
-                MockAWS.assert_called_once_with(region_name="us-east-1")
+                SecretKeeper.aws()
+            MockPlugin.assert_called_once_with(region_name=None)
 
-    def test_gcp_factory_uses_project_id(self):
+    def test_gcp_factory_with_explicit_project(self, mock_cloud_backends):
+        """Explicit project_id is forwarded to GCPSecretManagerPlugin unchanged."""
+        import genaikeys._gcp_secret_manager as _gcp
         mock_plugin = MagicMock()
-        mock_plugin.get_secret.return_value = "val"
-        with patch("genaikeys._gcp_secret_manager.GCPSecretManagerPlugin", return_value=mock_plugin) as MockGCP:
-            sk = SecretKeeper.gcp(project_id="my-project")
-            MockGCP.assert_called_once_with(project_id="my-project")
+        with patch.object(_gcp, "GCPSecretManagerPlugin", return_value=mock_plugin) as MockPlugin:
+            with patch.dict("os.environ", {}, clear=True):
+                SecretKeeper.gcp(project_id="my-project")
+            MockPlugin.assert_called_once_with(project_id="my-project")
+
+    def test_gcp_factory_passes_none_when_project_omitted(self, mock_cloud_backends):
+        """When project_id is omitted the factory passes None; pydantic reads the env var."""
+        import genaikeys._gcp_secret_manager as _gcp
+        mock_plugin = MagicMock()
+        with patch.object(_gcp, "GCPSecretManagerPlugin", return_value=mock_plugin) as MockPlugin:
+            with patch.dict("os.environ", {"GOOGLE_CLOUD_PROJECT": "env-project"}):
+                SecretKeeper.gcp()
+            MockPlugin.assert_called_once_with(project_id=None)

@@ -21,6 +21,7 @@ python = ">=3.10, <4.0"
 cryptography = "^43.0.1"
 azure-identity = "^1.17.1"
 azure-keyvault-secrets = "^4.8.0"
+pydantic-settings = "^2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"

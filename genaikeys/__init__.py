@@ -1,4 +1,3 @@
-import os
 import threading
 from typing import Optional
 
@@ -24,36 +23,26 @@ class SecretKeeper(metaclass=SingletonMeta):
 
     @classmethod
     def from_defaults(cls, cache_duration: int = 3600, vault_url: Optional[str] = None):
+        """Create a SecretKeeper backed by Azure Key Vault (default backend)."""
         from ._azure_keyvault import AzureKeyVaultPlugin
-
-        vault_url = vault_url or os.environ.get("AZURE_KEY_VAULT_URL")
-        if not vault_url:
-            raise ValueError("Azure Key Vault URL must be provided or set in AZURE_KEY_VAULT_URL environment variable")
-
-        secret_store = AzureKeyVaultPlugin(vault_url=vault_url)
-        return cls(secret_store, cache_duration)
+        return cls(AzureKeyVaultPlugin(vault_url=vault_url), cache_duration)
 
     @classmethod
     def azure(cls, cache_duration: int = 3600, vault_url: Optional[str] = None):
+        """Create a SecretKeeper backed by Azure Key Vault."""
         return cls.from_defaults(cache_duration, vault_url)
 
     @classmethod
     def aws(cls, cache_duration: int = 3600, region_name: Optional[str] = None):
+        """Create a SecretKeeper backed by AWS Secrets Manager."""
         from ._aws_secret_manager import AWSSecretsManagerPlugin
-
-        region_name = region_name or os.getenv("AWS_DEFAULT_REGION")
-        if not region_name:
-            raise ValueError("AWS region must be provided or set in AWS_DEFAULT_REGION environment variable")
-
-        secret_store = AWSSecretsManagerPlugin(region_name=region_name)
-        return cls(secret_store, cache_duration)
+        return cls(AWSSecretsManagerPlugin(region_name=region_name), cache_duration)
 
     @classmethod
     def gcp(cls, cache_duration: int = 3600, project_id: Optional[str] = None):
+        """Create a SecretKeeper backed by Google Secret Manager."""
         from ._gcp_secret_manager import GCPSecretManagerPlugin
-
-        secret_store = GCPSecretManagerPlugin(project_id=project_id)
-        return cls(secret_store, cache_duration)
+        return cls(GCPSecretManagerPlugin(project_id=project_id), cache_duration)
 
     def get_secret(self, secret_name: str) -> str:
         return self._manager.get_secret(secret_name)

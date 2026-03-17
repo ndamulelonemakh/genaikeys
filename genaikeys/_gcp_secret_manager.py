@@ -1,10 +1,10 @@
 import functools
 import logging
-import os
 
 from google.api_core.exceptions import NotFound
 from google.cloud import secretmanager_v1
 
+from ._settings import GCPSettings
 from .types import SecretManagerPlugin
 
 logger = logging.getLogger(__name__)
@@ -12,12 +12,12 @@ logger = logging.getLogger(__name__)
 
 class GCPSecretManagerPlugin(SecretManagerPlugin):
     def __init__(self, project_id: str | None = None):
-        project_id = project_id or os.getenv("GOOGLE_CLOUD_PROJECT")
-        if not project_id:
-            raise ValueError(
-                "Google Cloud Project ID must be provided or set in GOOGLE_CLOUD_PROJECT environment variable")
+        overrides = {}
+        if project_id is not None:
+            overrides["google_cloud_project"] = project_id
+        cfg = GCPSettings(**overrides)
         self.client = secretmanager_v1.SecretManagerServiceClient()
-        self.project_id = project_id
+        self.project_id = cfg.google_cloud_project
 
     def get_secret(self, secret_name: str) -> str:
         name = f"projects/{self.project_id}/secrets/{secret_name}/versions/latest"
