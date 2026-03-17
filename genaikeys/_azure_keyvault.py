@@ -70,4 +70,4 @@ class AzureKeyVaultPlugin(SecretManagerPlugin):
                 for secret in self.client.list_properties_of_secrets(max_page_size=max_results)]
 
     def exists(self, secret_name: str, **kwargs) -> bool:
-        return secret_name in self.list_secrets(**kwargs)
+        return self._standard_kv_secret_name(secret_name) in self.list_secrets(**kwargs)

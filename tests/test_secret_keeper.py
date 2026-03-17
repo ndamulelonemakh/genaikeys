@@ -139,6 +139,29 @@ class TestGCPSettings:
 
 
 # ---------------------------------------------------------------------------
+# AzureKeyVaultPlugin – name normalisation
+# ---------------------------------------------------------------------------
+
+class TestAzureKeyVaultPlugin:
+    def test_exists_normalises_underscores_to_dashes(self, mock_cloud_backends):
+        """exists('MY_SECRET') must match 'my-secret' returned by list_secrets."""
+        import genaikeys._azure_keyvault as _az
+        mock_client = MagicMock()
+        # list_properties_of_secrets returns names with dashes (Azure KV format)
+        mock_secret = MagicMock()
+        mock_secret.name = "my-secret"
+        mock_client.list_properties_of_secrets.return_value = [mock_secret]
+
+        with patch.dict("os.environ", {"AZURE_KEY_VAULT_URL": "https://vault.azure.net/"}):
+            plugin = _az.AzureKeyVaultPlugin()
+        plugin.client = mock_client
+
+        assert plugin.exists("my_secret") is True   # underscore input → dash lookup
+        assert plugin.exists("my-secret") is True   # dash input → dash lookup (unchanged)
+        assert plugin.exists("OTHER_SECRET") is False
+
+
+# ---------------------------------------------------------------------------
 # AWSSecretsManagerPlugin – boto3.Session wiring
 # ---------------------------------------------------------------------------
 
