@@ -2,6 +2,7 @@ import functools
 import logging
 import os
 
+from google.api_core.exceptions import NotFound
 from google.cloud import secretmanager_v1
 
 from .types import SecretManagerPlugin
@@ -10,7 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 class GCPSecretManagerPlugin(SecretManagerPlugin):
-    def __init__(self, project_id: str | None = os.getenv("GOOGLE_CLOUD_PROJECT")):
+    def __init__(self, project_id: str | None = None):
+        project_id = project_id or os.getenv("GOOGLE_CLOUD_PROJECT")
         if not project_id:
             raise ValueError(
                 "Google Cloud Project ID must be provided or set in GOOGLE_CLOUD_PROJECT environment variable")
@@ -37,8 +39,5 @@ class GCPSecretManagerPlugin(SecretManagerPlugin):
         try:
             self.client.get_secret(request={"name": name})
             return True
-        except Exception as e:
-            if "NotFound" in str(e):
-                return False
-            else:
-                raise
+        except NotFound:
+            return False

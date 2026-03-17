@@ -1,3 +1,4 @@
+import os
 import threading
 from typing import Optional
 
@@ -51,7 +52,7 @@ class SecretKeeper(metaclass=SingletonMeta):
     def gcp(cls, cache_duration: int = 3600, project_id: Optional[str] = None):
         from ._gcp_secret_manager import GCPSecretManagerPlugin
 
-        secret_store = GCPSecretManagerPlugin(project_id=project_id) if project_id else GCPSecretManagerPlugin()
+        secret_store = GCPSecretManagerPlugin(project_id=project_id)
         return cls(secret_store, cache_duration)
 
     def get_secret(self, secret_name: str) -> str:
