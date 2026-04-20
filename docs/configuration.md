@@ -134,8 +134,8 @@ async with GenAIKeys.azure() as sk:
 ```
 
 Cache hits short-circuit without dispatching to a worker thread. `aget_many`
-fans out across the default thread pool — for very large batches, configure
-`loop.set_default_executor` with a sized `ThreadPoolExecutor`.
+bounds uncached backend fetches with an internal concurrency limit of 32 per
+event loop.
 
 ## Environment-variable fallback (local development)
 

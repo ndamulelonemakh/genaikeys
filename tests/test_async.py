@@ -1,3 +1,6 @@
+import asyncio
+import threading
+
 import pytest
 
 from genaikeys import GenAIKeys
@@ -57,3 +60,36 @@ class TestAsyncAPI:
         value = await sk.aget("K")
         assert value == "v"
         assert plugin.call_count == 1
+
+    async def test_aget_many_respects_concurrency_limit(self):
+        entered = threading.Event()
+        release = threading.Event()
+        state = {"current": 0, "max": 0}
+        state_lock = threading.Lock()
+
+        class SlowPlugin(FakePlugin):
+            def get_secret(self, secret_name: str) -> str:
+                with state_lock:
+                    state["current"] += 1
+                    state["max"] = max(state["max"], state["current"])
+                    if state["current"] == 1:
+                        entered.set()
+                release.wait(timeout=1)
+                try:
+                    return super().get_secret(secret_name)
+                finally:
+                    with state_lock:
+                        state["current"] -= 1
+
+        plugin = SlowPlugin({str(index): str(index) for index in range(3)})
+        sk = GenAIKeys(plugin)
+        sk._manager._async_semaphores[asyncio.get_running_loop()] = asyncio.Semaphore(1)
+
+        task = asyncio.create_task(sk.aget_many(["0", "1", "2"]))
+        await asyncio.to_thread(entered.wait, 1)
+        await asyncio.sleep(0)
+        with state_lock:
+            assert state["max"] == 1
+        release.set()
+        result = await task
+        assert result == {"0": "0", "1": "1", "2": "2"}
