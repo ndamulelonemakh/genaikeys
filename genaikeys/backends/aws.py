@@ -1,4 +1,3 @@
-import functools
 import logging
 
 import boto3
@@ -22,6 +21,7 @@ class AWSSecretsManagerPlugin(SecretManagerPlugin):
             region_name=cfg.aws_default_region,
         )
         self.client = session.client("secretsmanager")
+        self._list_secrets_cache: dict[int, list[str]] = {}
         logger.debug(
             "AWS Secrets Manager client initialized (region=%s, profile=%s)",
             cfg.aws_default_region,
@@ -37,10 +37,13 @@ class AWSSecretsManagerPlugin(SecretManagerPlugin):
             raise
         return str(response["SecretString"])
 
-    @functools.lru_cache(1, typed=True)
     def list_secrets(self, max_results: int = 100) -> list[str]:
+        if max_results in self._list_secrets_cache:
+            return self._list_secrets_cache[max_results]
         response = self.client.list_secrets(MaxResults=max_results)
-        return [secret["Name"] for secret in response["SecretList"]]
+        result = [secret["Name"] for secret in response["SecretList"]]
+        self._list_secrets_cache[max_results] = result
+        return result
 
     def exists(self, secret_name: str, **kwargs) -> bool:
         return secret_name in self.list_secrets()

@@ -1,4 +1,3 @@
-import functools
 import logging
 
 from azure.identity import DefaultAzureCredential
@@ -23,6 +22,7 @@ class AzureKeyVaultPlugin(SecretManagerPlugin):
         )
         self.vault_url = cfg.azure_key_vault_url
         self.client = SecretClient(vault_url=self.vault_url, credential=credential)
+        self._list_secrets_cache: dict[int, list[str]] = {}
         logger.debug(
             "Azure Key Vault client initialized (vault_url=%s, managed_identity=%s)",
             self.vault_url,
@@ -48,13 +48,16 @@ class AzureKeyVaultPlugin(SecretManagerPlugin):
             raise KeyError(f"Secret '{normalized}' has no value")
         return value
 
-    @functools.lru_cache(maxsize=1, typed=True)
     def list_secrets(self, max_results: int = 100) -> list[str]:
-        return [
+        if max_results in self._list_secrets_cache:
+            return self._list_secrets_cache[max_results]
+        result = [
             secret.name
             for secret in self.client.list_properties_of_secrets(max_page_size=max_results)
             if secret.name is not None
         ]
+        self._list_secrets_cache[max_results] = result
+        return result
 
     def exists(self, secret_name: str, **kwargs) -> bool:
         return self._standard_kv_secret_name(secret_name) in self.list_secrets(**kwargs)

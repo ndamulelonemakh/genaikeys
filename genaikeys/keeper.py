@@ -1,10 +1,17 @@
 import logging
+import re
 import threading
 
 from .cache import InMemorySecretManager
 from .plugins import SecretManagerPlugin, load_backend
 
 logger = logging.getLogger(__name__)
+
+_SECRET_ATTR_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
+
+
+def _is_secret_attr(name: str) -> bool:
+    return bool(_SECRET_ATTR_RE.match(name))
 
 
 class SingletonMeta(type):
@@ -74,9 +81,12 @@ class GenAIKeys(metaclass=SingletonMeta):
         return self.get("GEMINI_API_KEY")
 
     def __getattr__(self, name: str) -> str:
-        if name.startswith("_"):
+        if name.startswith("_") or not _is_secret_attr(name):
             raise AttributeError(name)
-        return self._manager.get_secret(name)
+        try:
+            return self._manager.get_secret(name)
+        except Exception as exc:
+            raise AttributeError(name) from exc
 
     def __getitem__(self, name: str) -> str:
         return self._manager.get_secret(name)
@@ -87,3 +97,22 @@ class GenAIKeys(metaclass=SingletonMeta):
         except Exception:
             return False
         return True
+
+    def __repr__(self) -> str:
+        return "<GenAIKeys>"
+
+    def __reduce__(self):
+        raise TypeError("GenAIKeys is not picklable: refusing to serialize cached secrets")
+
+    def __copy__(self):
+        raise TypeError("GenAIKeys is not copyable: refusing to duplicate cached secrets")
+
+    def __deepcopy__(self, memo):
+        raise TypeError("GenAIKeys is not copyable: refusing to duplicate cached secrets")
+
+
+_SECRET_ATTR_RE = __import__("re").compile(r"^[A-Z][A-Z0-9_]*$")
+
+
+def _is_secret_attr(name: str) -> bool:
+    return bool(_SECRET_ATTR_RE.match(name))

@@ -1,4 +1,3 @@
-import functools
 import logging
 
 from google.api_core.exceptions import NotFound
@@ -18,6 +17,7 @@ class GCPSecretManagerPlugin(SecretManagerPlugin):
         cfg = GCPSettings(**overrides)
         self.client = secretmanager_v1.SecretManagerServiceClient()
         self.project_id = cfg.google_cloud_project
+        self._list_secrets_cache: dict[int, list[str]] = {}
         logger.debug("GCP Secret Manager client initialized (project=%s)", self.project_id)
 
     def get_secret(self, secret_name: str) -> str:
@@ -30,11 +30,14 @@ class GCPSecretManagerPlugin(SecretManagerPlugin):
             logger.error("GCP access_secret_version failed for %r: %s", secret_name, exc)
             raise
 
-    @functools.lru_cache(maxsize=1, typed=True)
     def list_secrets(self, max_results: int = 100) -> list[str]:
+        if max_results in self._list_secrets_cache:
+            return self._list_secrets_cache[max_results]
         parent = f"projects/{self.project_id}"
         response = self.client.list_secrets(request={"parent": parent, "pageSize": max_results})
-        return [secret.name.split("/")[-1] for secret in response]
+        result = [secret.name.split("/")[-1] for secret in response]
+        self._list_secrets_cache[max_results] = result
+        return result
 
     def exists(self, secret_name: str, **kwargs) -> bool:
         name = f"projects/{self.project_id}/secrets/{secret_name}"

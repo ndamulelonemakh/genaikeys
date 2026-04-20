@@ -356,17 +356,30 @@ class TestGenAIKeys:
         sk = GenAIKeys(plugin)
         assert sk.OPENAI_KEY == "sk-attr"
 
-    def test_attribute_access_missing_raises_keyerror(self):
+    def test_attribute_access_missing_raises_attribute_error(self):
         plugin = _FakePlugin({})
         sk = GenAIKeys(plugin)
-        with pytest.raises(KeyError):
-            sk.NOPE
+        with pytest.raises(AttributeError):
+            _ = sk.NOPE
+
+    def test_hasattr_does_not_raise(self):
+        plugin = _FakePlugin({})
+        sk = GenAIKeys(plugin)
+        assert hasattr(sk, "MISSING") is False
+
+    def test_attribute_access_rejects_non_uppercase(self):
+        plugin = _FakePlugin({"lowercase_key": "should-not-be-fetched"})
+        sk = GenAIKeys(plugin)
+        with pytest.raises(AttributeError):
+            _ = sk.lowercase_key
+        assert plugin.call_count == 0
 
     def test_dunder_attribute_does_not_hit_backend(self):
         plugin = _FakePlugin({})
         sk = GenAIKeys(plugin)
         with pytest.raises(AttributeError):
-            sk.__some_private__
+            _ = sk.__some_private__
+        assert plugin.call_count == 0
 
     def test_item_access_returns_secret(self):
         plugin = _FakePlugin({"FOO": "bar"})
@@ -378,6 +391,47 @@ class TestGenAIKeys:
         sk = GenAIKeys(plugin)
         assert "FOO" in sk
         assert "MISSING" not in sk
+
+    def test_pickle_refused(self):
+        import pickle
+
+        plugin = _FakePlugin({"FOO": "bar"})
+        sk = GenAIKeys(plugin)
+        sk.get("FOO")
+        with pytest.raises(TypeError):
+            pickle.dumps(sk)
+
+    def test_deepcopy_refused(self):
+        import copy
+
+        plugin = _FakePlugin({"FOO": "bar"})
+        sk = GenAIKeys(plugin)
+        sk.get("FOO")
+        with pytest.raises(TypeError):
+            copy.deepcopy(sk)
+        with pytest.raises(TypeError):
+            copy.copy(sk)
+
+    def test_repr_does_not_leak_state(self):
+        plugin = _FakePlugin({"FOO": "super-secret"})
+        sk = GenAIKeys(plugin)
+        sk.get("FOO")
+        assert "super-secret" not in repr(sk)
+        assert "FOO" not in repr(sk)
+
+    def test_manager_repr_does_not_leak(self):
+        plugin = _FakePlugin({"FOO": "super-secret"})
+        sk = GenAIKeys(plugin)
+        sk.get("FOO")
+        assert "super-secret" not in repr(sk._manager)
+        assert "FOO" not in repr(sk._manager)
+
+    def test_manager_state_is_private(self):
+        plugin = _FakePlugin({"FOO": "bar"})
+        sk = GenAIKeys(plugin)
+        sk.get("FOO")
+        assert not hasattr(sk._manager, "cache")
+        assert not hasattr(sk._manager, "plugin")
 
 
 # ---------------------------------------------------------------------------
