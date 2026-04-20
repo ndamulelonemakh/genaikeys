@@ -80,7 +80,13 @@ Populate a `.env` (or `.env.example`) file with values from your vault:
 genaikeys fill .env --keyvault https://my-kv.vault.azure.net
 ```
 
-Only empty values are filled by default; comments and existing values are preserved. See [docs/cli.md](docs/cli.md) for all options (`--backend`, `--overwrite`, `--dry-run`, `--strict`, `--output`, …).
+Or go the other way — upload values from a `.env` into a vault:
+
+```bash
+genaikeys push .env --keyvault https://my-kv.vault.azure.net
+```
+
+Only empty values are filled by default; `push` skips keys that already exist. See [docs/cli.md](docs/cli.md) for all options (`--backend`, `--overwrite`, `--dry-run`, `--strict`, `--only`, `--output`, …).
 
 ## Caching
 

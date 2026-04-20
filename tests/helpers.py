@@ -12,6 +12,9 @@ class FakePlugin(SecretManagerPlugin):
             raise KeyError(f"Secret '{secret_name}' not found")
         return self._secrets[secret_name]
 
+    def set_secret(self, secret_name: str, value: str) -> None:
+        self._secrets[secret_name] = value
+
     def exists(self, secret_name: str, **kwargs) -> bool:
         return secret_name in self._secrets
 

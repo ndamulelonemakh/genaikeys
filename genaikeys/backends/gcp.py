@@ -30,6 +30,26 @@ class GCPSecretManagerPlugin(SecretManagerPlugin):
             logger.error("GCP access_secret_version failed for %r: %s", secret_name, type(exc).__name__)
             raise
 
+    def set_secret(self, secret_name: str, value: str) -> None:
+        parent = f"projects/{self.project_id}"
+        secret_path = f"{parent}/secrets/{secret_name}"
+        try:
+            self.client.get_secret(request={"name": secret_path})
+        except NotFound:
+            self.client.create_secret(
+                request={
+                    "parent": parent,
+                    "secret_id": secret_name,
+                    "secret": {"replication": {"automatic": {}}},
+                }
+            )
+        try:
+            self.client.add_secret_version(request={"parent": secret_path, "payload": {"data": value.encode("UTF-8")}})
+        except Exception as exc:
+            logger.error("GCP add_secret_version failed for %r: %s", secret_name, type(exc).__name__)
+            raise
+        self._list_secrets_cache.clear()
+
     def list_secrets(self, max_results: int = 100) -> list[str]:
         if max_results in self._list_secrets_cache:
             return self._list_secrets_cache[max_results]

@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from genaikeys.cli import build_parser, fill_env_file, main
+from genaikeys.cli import build_parser, fill_env_file, main, parse_env_file
 from tests.helpers import FakePlugin
 
 
@@ -133,6 +133,83 @@ def test_main_fill_writes_to_output(tmp_path):
     assert rc == 0
     assert env.read_text(encoding="utf-8") == "FOO=\n"
     assert "FOO=bar" in out.read_text(encoding="utf-8")
+
+
+def test_parse_env_file_skips_empty_and_comments():
+    source = '# header\n\nFOO=\nBAR=value\nBAZ="quoted value"\n'
+    assert parse_env_file(source) == [("BAR", "value"), ("BAZ", "quoted value")]
+
+
+def _patched_keeper(plugin):
+    return patch("genaikeys.cli.GenAIKeys.azure", return_value=__import__("genaikeys").GenAIKeys(plugin))
+
+
+def test_push_uploads_only_new_keys_by_default(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text("NEW_KEY=abc\nEXISTING=should-not-overwrite\nEMPTY=\n", encoding="utf-8")
+    plugin = FakePlugin({"EXISTING": "old"})
+
+    with _patched_keeper(plugin):
+        rc = main(["push", str(env)])
+
+    assert rc == 0
+    assert plugin._secrets == {"EXISTING": "old", "NEW_KEY": "abc"}
+
+
+def test_push_overwrite_replaces_existing(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text("EXISTING=new\n", encoding="utf-8")
+    plugin = FakePlugin({"EXISTING": "old"})
+
+    with _patched_keeper(plugin):
+        rc = main(["push", str(env), "--overwrite"])
+
+    assert rc == 0
+    assert plugin._secrets == {"EXISTING": "new"}
+
+
+def test_push_dry_run_does_not_call_backend(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text("A=1\nB=2\n", encoding="utf-8")
+    plugin = FakePlugin({})
+
+    with _patched_keeper(plugin):
+        rc = main(["push", str(env), "--dry-run"])
+
+    assert rc == 0
+    assert plugin._secrets == {}
+
+
+def test_push_only_filters_keys(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text("A=1\nB=2\nC=3\n", encoding="utf-8")
+    plugin = FakePlugin({})
+
+    with _patched_keeper(plugin):
+        rc = main(["push", str(env), "--only", "A,C"])
+
+    assert rc == 0
+    assert plugin._secrets == {"A": "1", "C": "3"}
+
+
+def test_push_missing_file_returns_2(tmp_path):
+    rc = main(["push", str(tmp_path / "nope.env")])
+    assert rc == 2
+
+
+def test_push_reports_backend_failure(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text("WILL_FAIL=x\n", encoding="utf-8")
+
+    class FailingPlugin(FakePlugin):
+        def set_secret(self, secret_name, value):
+            raise RuntimeError("boom")
+
+    plugin = FailingPlugin({})
+    with _patched_keeper(plugin):
+        rc = main(["push", str(env)])
+
+    assert rc == 1
 
 
 def test_console_script_entry_point_resolves():

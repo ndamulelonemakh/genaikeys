@@ -48,6 +48,15 @@ class AzureKeyVaultPlugin(SecretManagerPlugin):
             raise KeyError(f"Secret '{normalized}' has no value")
         return value
 
+    def set_secret(self, secret_name: str, value: str) -> None:
+        normalized = self._standard_kv_secret_name(secret_name)
+        try:
+            self.client.set_secret(normalized, value)
+        except Exception as exc:
+            logger.error("Azure Key Vault set_secret failed for %r: %s", normalized, type(exc).__name__)
+            raise
+        self._list_secrets_cache.clear()
+
     def list_secrets(self, max_results: int = 100) -> list[str]:
         if max_results in self._list_secrets_cache:
             return self._list_secrets_cache[max_results]
