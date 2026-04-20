@@ -2,7 +2,7 @@ import logging as _stdlib_logging
 from importlib.metadata import PackageNotFoundError, version
 
 from ._logging import disable_logging, enable_logging
-from .keeper import GenAIKeys, SingletonMeta
+from .keeper import GenAIKeys
 from .plugins import SecretManagerPlugin
 
 try:
@@ -15,7 +15,6 @@ _stdlib_logging.getLogger(__name__).addHandler(_stdlib_logging.NullHandler())
 __all__ = [
     "GenAIKeys",
     "SecretManagerPlugin",
-    "SingletonMeta",
     "__version__",
     "enable_logging",
     "disable_logging",

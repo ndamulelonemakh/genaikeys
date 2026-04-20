@@ -25,11 +25,31 @@ class TestGenAIKeys:
         sk.get("MY_SECRET")
         assert "MY_SECRET" not in os.environ
 
-    def test_singleton_returns_same_instance(self):
+    def test_each_instantiation_returns_new_instance(self):
         plugin = FakePlugin({"K": "v"})
         sk1 = GenAIKeys(plugin)
         sk2 = GenAIKeys(plugin)
-        assert sk1 is sk2
+        assert sk1 is not sk2
+
+    def test_context_manager_clears_cache_on_exit(self):
+        plugin = FakePlugin({"K": "v"})
+        with GenAIKeys(plugin) as sk:
+            sk.get("K")
+            assert plugin.call_count == 1
+            sk.get("K")
+            assert plugin.call_count == 1
+        sk.get("K")
+        assert plugin.call_count == 2
+
+    def test_instances_have_isolated_caches(self):
+        plugin_a = FakePlugin({"SHARED_NAME": "value-from-a"})
+        plugin_b = FakePlugin({"SHARED_NAME": "value-from-b"})
+        sk_a = GenAIKeys(plugin_a)
+        sk_b = GenAIKeys(plugin_b)
+        assert sk_a.get("SHARED_NAME") == "value-from-a"
+        assert sk_b.get("SHARED_NAME") == "value-from-b"
+        assert plugin_a.call_count == 1
+        assert plugin_b.call_count == 1
 
     def test_clear_specific_key(self):
         plugin = FakePlugin({"K": "v"})
