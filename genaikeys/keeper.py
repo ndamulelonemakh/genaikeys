@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import os
 import re
 
 from .cache import InMemorySecretManager
@@ -14,46 +16,92 @@ def _is_secret_attr(name: str) -> bool:
 
 
 class GenAIKeys:
-    def __init__(self, plugin: SecretManagerPlugin, cache_duration: int = 3600):
+    def __init__(
+        self,
+        plugin: SecretManagerPlugin,
+        cache_duration: int = 3600,
+        fallback_env: bool = False,
+    ):
         self._manager = InMemorySecretManager(plugin, cache_duration)
+        self._fallback_env = fallback_env
         logger.info(
-            "GenAIKeys initialized (backend=%s, cache_duration=%ds)",
+            "GenAIKeys initialized (backend=%s, cache_duration=%ds, fallback_env=%s)",
             type(plugin).__name__,
             cache_duration,
+            fallback_env,
         )
 
     @classmethod
-    def from_defaults(cls, cache_duration: int = 3600, vault_url: str | None = None):
+    def from_defaults(cls, cache_duration: int = 3600, vault_url: str | None = None, fallback_env: bool = False):
         from .backends.azure import AzureKeyVaultPlugin
 
-        return cls(AzureKeyVaultPlugin(vault_url=vault_url), cache_duration)
+        return cls(AzureKeyVaultPlugin(vault_url=vault_url), cache_duration, fallback_env=fallback_env)
 
     @classmethod
-    def azure(cls, cache_duration: int = 3600, vault_url: str | None = None):
-        return cls.from_defaults(cache_duration, vault_url)
+    def azure(cls, cache_duration: int = 3600, vault_url: str | None = None, fallback_env: bool = False):
+        return cls.from_defaults(cache_duration, vault_url, fallback_env=fallback_env)
 
     @classmethod
-    def aws(cls, cache_duration: int = 3600, region_name: str | None = None, profile_name: str | None = None):
+    def aws(
+        cls,
+        cache_duration: int = 3600,
+        region_name: str | None = None,
+        profile_name: str | None = None,
+        fallback_env: bool = False,
+    ):
         from .backends.aws import AWSSecretsManagerPlugin
 
-        return cls(AWSSecretsManagerPlugin(region_name=region_name, profile_name=profile_name), cache_duration)
+        return cls(
+            AWSSecretsManagerPlugin(region_name=region_name, profile_name=profile_name),
+            cache_duration,
+            fallback_env=fallback_env,
+        )
 
     @classmethod
-    def gcp(cls, cache_duration: int = 3600, project_id: str | None = None):
+    def gcp(cls, cache_duration: int = 3600, project_id: str | None = None, fallback_env: bool = False):
         from .backends.gcp import GCPSecretManagerPlugin
 
-        return cls(GCPSecretManagerPlugin(project_id=project_id), cache_duration)
+        return cls(GCPSecretManagerPlugin(project_id=project_id), cache_duration, fallback_env=fallback_env)
 
     @classmethod
-    def backend(cls, name: str, cache_duration: int = 3600, **kwargs):
+    def backend(cls, name: str, cache_duration: int = 3600, fallback_env: bool = False, **kwargs):
         backend_class = load_backend(name)
-        return cls(backend_class(**kwargs), cache_duration)
+        return cls(backend_class(**kwargs), cache_duration, fallback_env=fallback_env)
+
+    def _resolve(self, secret_name: str) -> str:
+        try:
+            return self._manager.get_secret(secret_name)
+        except Exception:
+            if not self._fallback_env:
+                raise
+            value = os.environ.get(secret_name)
+            if value is not None:
+                logger.info("using environment fallback for %r", secret_name)
+                return value
+            raise
+
+    async def _aresolve(self, secret_name: str) -> str:
+        try:
+            return await self._manager.aget_secret(secret_name)
+        except Exception:
+            if not self._fallback_env:
+                raise
+            value = os.environ.get(secret_name)
+            if value is not None:
+                logger.info("using environment fallback for %r", secret_name)
+                return value
+            raise
+
+    # --- sync API ---
 
     def get_secret(self, secret_name: str) -> str:
-        return self._manager.get_secret(secret_name)
+        return self._resolve(secret_name)
 
     def get(self, secret_name: str) -> str:
-        return self.get_secret(secret_name)
+        return self._resolve(secret_name)
+
+    def get_many(self, secret_names: list[str]) -> dict[str, str]:
+        return {name: self._resolve(name) for name in secret_names}
 
     def clear(self, secret_name: str | None = None):
         self._manager.invalidate_cache(secret_name=secret_name)
@@ -67,26 +115,45 @@ class GenAIKeys:
     def get_gemini_key(self) -> str:
         return self.get("GEMINI_API_KEY")
 
+    # --- async API ---
+
+    async def aget(self, secret_name: str) -> str:
+        return await self._aresolve(secret_name)
+
+    async def aget_many(self, secret_names: list[str]) -> dict[str, str]:
+        values = await asyncio.gather(*(self._aresolve(name) for name in secret_names))
+        return dict(zip(secret_names, values, strict=True))
+
+    # --- context managers ---
+
     def __enter__(self) -> "GenAIKeys":
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
         self.clear()
 
+    async def __aenter__(self) -> "GenAIKeys":
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        self.clear()
+
+    # --- dunder access ---
+
     def __getattr__(self, name: str) -> str:
         if name.startswith("_") or not _is_secret_attr(name):
             raise AttributeError(name)
         try:
-            return self._manager.get_secret(name)
+            return self._resolve(name)
         except Exception as exc:
             raise AttributeError(name) from exc
 
     def __getitem__(self, name: str) -> str:
-        return self._manager.get_secret(name)
+        return self._resolve(name)
 
     def __contains__(self, name: str) -> bool:
         try:
-            self._manager.get_secret(name)
+            self._resolve(name)
         except Exception:
             return False
         return True

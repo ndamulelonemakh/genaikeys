@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import threading
 import time
@@ -53,6 +54,9 @@ class InMemorySecretManager:
             elif secret_name in self._cache:
                 logger.debug("invalidating cache entry %r", secret_name)
                 del self._cache[secret_name]
+
+    async def aget_secret(self, secret_name: str) -> str:
+        return await asyncio.to_thread(self.get_secret, secret_name)
 
     def __repr__(self) -> str:
         return f"<InMemorySecretManager backend={type(self._plugin).__name__} entries=redacted>"
