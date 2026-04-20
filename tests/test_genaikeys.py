@@ -1,6 +1,7 @@
 import copy
 import os
 import pickle
+from unittest.mock import patch
 
 import pytest
 
@@ -185,3 +186,72 @@ class TestGenAIKeys:
         sk = GenAIKeys(ForbiddenPlugin())
         with pytest.raises(PermissionError, match="403"):
             sk.get("ANY_KEY")
+
+
+class TestGetMany:
+    def test_get_many_returns_dict(self):
+        plugin = FakePlugin({"A": "1", "B": "2", "C": "3"})
+        sk = GenAIKeys(plugin)
+        result = sk.get_many(["A", "B", "C"])
+        assert result == {"A": "1", "B": "2", "C": "3"}
+
+    def test_get_many_uses_cache(self):
+        plugin = FakePlugin({"A": "1", "B": "2"})
+        sk = GenAIKeys(plugin)
+        sk.get("A")
+        sk.get_many(["A", "B"])
+        assert plugin.call_count == 2
+
+    def test_get_many_partial_failure(self):
+        plugin = FakePlugin({"A": "1"})
+        sk = GenAIKeys(plugin)
+        with pytest.raises(KeyError):
+            sk.get_many(["A", "MISSING"])
+
+    def test_get_many_empty_list(self):
+        plugin = FakePlugin({"A": "1"})
+        sk = GenAIKeys(plugin)
+        assert sk.get_many([]) == {}
+        assert plugin.call_count == 0
+
+
+class TestFallbackEnv:
+    def test_fallback_disabled_by_default(self):
+        plugin = FakePlugin({})
+        sk = GenAIKeys(plugin)
+        with patch.dict(os.environ, {"MY_KEY": "from-env"}), pytest.raises(KeyError):
+            sk.get("MY_KEY")
+
+    def test_fallback_uses_env_when_backend_fails(self):
+        plugin = FakePlugin({})
+        sk = GenAIKeys(plugin, fallback_env=True)
+        with patch.dict(os.environ, {"MY_KEY": "from-env"}):
+            assert sk.get("MY_KEY") == "from-env"
+
+    def test_fallback_prefers_backend_over_env(self):
+        plugin = FakePlugin({"MY_KEY": "from-vault"})
+        sk = GenAIKeys(plugin, fallback_env=True)
+        with patch.dict(os.environ, {"MY_KEY": "from-env"}):
+            assert sk.get("MY_KEY") == "from-vault"
+
+    def test_fallback_raises_when_env_also_missing(self):
+        plugin = FakePlugin({})
+        sk = GenAIKeys(plugin, fallback_env=True)
+        with patch.dict(os.environ, {}, clear=True), pytest.raises(KeyError):
+            sk.get("TOTALLY_MISSING")
+
+    def test_fallback_works_with_get_many(self):
+        plugin = FakePlugin({"A": "from-vault"})
+        sk = GenAIKeys(plugin, fallback_env=True)
+        with patch.dict(os.environ, {"B": "from-env"}):
+            result = sk.get_many(["A", "B"])
+        assert result == {"A": "from-vault", "B": "from-env"}
+
+    def test_fallback_logs_warning(self, caplog):
+        import logging
+
+        plugin = FakePlugin({})
+        sk = GenAIKeys(plugin, fallback_env=True)
+        with caplog.at_level(logging.WARNING, logger="genaikeys"), patch.dict(os.environ, {"K": "v"}):
+            sk.get("K")
+        assert any("environment fallback" in r.getMessage() for r in caplog.records)

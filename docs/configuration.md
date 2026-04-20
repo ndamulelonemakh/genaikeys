@@ -114,6 +114,42 @@ sk.clear("OPENAI_API_KEY")  # Invalidate one key
 sk.clear()                   # Invalidate all
 ```
 
+## Bulk fetch
+
+```python
+keys = sk.get_many(["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY"])
+# {"OPENAI_API_KEY": "...", "ANTHROPIC_API_KEY": "...", "GEMINI_API_KEY": "..."}
+```
+
+Cached entries are reused; only misses hit the backend.
+
+## Async API
+
+Every backend exposes an `async` surface via `asyncio.to_thread`:
+
+```python
+async with GenAIKeys.azure() as sk:
+    key = await sk.aget("OPENAI_API_KEY")
+    bundle = await sk.aget_many(["OPENAI_API_KEY", "ANTHROPIC_API_KEY"])
+```
+
+Cache hits short-circuit without dispatching to a worker thread. `aget_many`
+bounds uncached backend fetches with an internal concurrency limit of 32 per
+event loop.
+
+## Environment-variable fallback (local development)
+
+Pass `fallback_env=True` to fall back to `os.environ` when the backend lookup
+fails. A `WARNING` is logged whenever the fallback is used so the masking is
+observable.
+
+```python
+sk = GenAIKeys.azure(fallback_env=True)
+sk.get("OPENAI_API_KEY")  # tries vault, then os.environ["OPENAI_API_KEY"]
+```
+
+The fallback is **off by default** — production code should rely on the vault.
+
 ## Logging
 
 The package logger is silent by default. For local debugging:

@@ -1,21 +1,28 @@
+import asyncio
 import logging
 import threading
 import time
+import weakref
 from typing import Any
 
 from .plugins.base import SecretManagerPlugin
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_ASYNC_CONCURRENCY = 32
+
 
 class InMemorySecretManager:
-    __slots__ = ("_cache", "_cache_lock", "_cache_duration", "_plugin")
+    __slots__ = ("_async_semaphores", "_cache", "_cache_lock", "_cache_duration", "_plugin")
 
     def __init__(self, plugin: SecretManagerPlugin, cache_duration: int = 3600):
         self._cache_lock = threading.Lock()
         self._plugin = plugin
         self._cache_duration = cache_duration
         self._cache: dict[str, dict[str, Any]] = {}
+        self._async_semaphores: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Semaphore] = (
+            weakref.WeakKeyDictionary()
+        )
 
     def get_secret(self, secret_name: str) -> str:
         with self._cache_lock:
@@ -53,6 +60,23 @@ class InMemorySecretManager:
             elif secret_name in self._cache:
                 logger.debug("invalidating cache entry %r", secret_name)
                 del self._cache[secret_name]
+
+    def _get_async_semaphore(self) -> asyncio.Semaphore:
+        loop = asyncio.get_running_loop()
+        semaphore = self._async_semaphores.get(loop)
+        if semaphore is None:
+            semaphore = asyncio.Semaphore(_DEFAULT_ASYNC_CONCURRENCY)
+            self._async_semaphores[loop] = semaphore
+        return semaphore
+
+    async def aget_secret(self, secret_name: str) -> str:
+        with self._cache_lock:
+            if secret_name in self._cache:
+                cached_secret = self._cache[secret_name]
+                if time.time() - cached_secret["timestamp"] < self._cache_duration:
+                    return str(cached_secret["value"])
+        async with self._get_async_semaphore():
+            return await asyncio.to_thread(self.get_secret, secret_name)
 
     def __repr__(self) -> str:
         return f"<InMemorySecretManager backend={type(self._plugin).__name__} entries=redacted>"
