@@ -351,6 +351,107 @@ class TestGenAIKeys:
         with pytest.raises(KeyError):
             sk.get("DOES_NOT_EXIST")
 
+    def test_attribute_access_returns_secret(self):
+        plugin = _FakePlugin({"OPENAI_KEY": "sk-attr"})
+        sk = GenAIKeys(plugin)
+        assert sk.OPENAI_KEY == "sk-attr"
+
+    def test_attribute_access_missing_raises_keyerror(self):
+        plugin = _FakePlugin({})
+        sk = GenAIKeys(plugin)
+        with pytest.raises(KeyError):
+            sk.NOPE
+
+    def test_dunder_attribute_does_not_hit_backend(self):
+        plugin = _FakePlugin({})
+        sk = GenAIKeys(plugin)
+        with pytest.raises(AttributeError):
+            sk.__some_private__
+
+    def test_item_access_returns_secret(self):
+        plugin = _FakePlugin({"FOO": "bar"})
+        sk = GenAIKeys(plugin)
+        assert sk["FOO"] == "bar"
+
+    def test_contains(self):
+        plugin = _FakePlugin({"FOO": "bar"})
+        sk = GenAIKeys(plugin)
+        assert "FOO" in sk
+        assert "MISSING" not in sk
+
+
+# ---------------------------------------------------------------------------
+# Logging tests
+# ---------------------------------------------------------------------------
+
+
+class TestLogging:
+    def test_package_logger_has_null_handler_by_default(self):
+        import logging
+
+        import genaikeys
+
+        pkg_logger = logging.getLogger("genaikeys")
+        assert any(isinstance(h, logging.NullHandler) for h in pkg_logger.handlers)
+        assert genaikeys
+
+    def test_no_secret_value_in_logs(self, caplog):
+        import logging
+
+        plugin = _FakePlugin({"OPENAI_API_KEY": "super-secret-value-xyz"})
+        sk = GenAIKeys(plugin)
+        with caplog.at_level(logging.DEBUG, logger="genaikeys"):
+            sk.get("OPENAI_API_KEY")
+        joined = "\n".join(r.getMessage() for r in caplog.records)
+        assert "super-secret-value-xyz" not in joined
+        assert "OPENAI_API_KEY" in joined
+
+    def test_cache_hit_emits_debug(self, caplog):
+        import logging
+
+        plugin = _FakePlugin({"FOO": "bar"})
+        sk = GenAIKeys(plugin)
+        sk.get("FOO")
+        caplog.clear()
+        with caplog.at_level(logging.DEBUG, logger="genaikeys.cache"):
+            sk.get("FOO")
+        assert any("cache hit" in r.getMessage() for r in caplog.records)
+
+    def test_backend_failure_logged_as_warning(self, caplog):
+        import logging
+
+        plugin = _FakePlugin({})
+        sk = GenAIKeys(plugin)
+        with caplog.at_level(logging.WARNING, logger="genaikeys.cache"):
+            with pytest.raises(KeyError):
+                sk.get("NOPE")
+        assert any(r.levelno == logging.WARNING for r in caplog.records)
+
+    def test_enable_logging_attaches_handler(self):
+        import logging
+
+        from genaikeys import disable_logging, enable_logging
+
+        try:
+            logger = enable_logging(level=logging.DEBUG)
+            assert logger.level == logging.DEBUG
+            assert any(getattr(h, "_genaikeys_managed", False) for h in logger.handlers)
+            enable_logging(level=logging.INFO)
+            managed = [h for h in logger.handlers if getattr(h, "_genaikeys_managed", False)]
+            assert len(managed) == 1
+        finally:
+            disable_logging()
+
+    def test_disable_logging_removes_managed_handlers(self):
+        import logging
+
+        from genaikeys import disable_logging, enable_logging
+
+        enable_logging(level=logging.DEBUG)
+        disable_logging()
+        logger = logging.getLogger("genaikeys")
+        assert not any(getattr(h, "_genaikeys_managed", False) for h in logger.handlers)
+
 
 # ---------------------------------------------------------------------------
 # SecretManagerPlugin base class tests

@@ -1,7 +1,10 @@
+import logging
 import threading
 
 from .cache import InMemorySecretManager
 from .plugins import SecretManagerPlugin, load_backend
+
+logger = logging.getLogger(__name__)
 
 
 class SingletonMeta(type):
@@ -19,6 +22,11 @@ class SingletonMeta(type):
 class GenAIKeys(metaclass=SingletonMeta):
     def __init__(self, plugin: SecretManagerPlugin, cache_duration: int = 3600):
         self._manager = InMemorySecretManager(plugin, cache_duration)
+        logger.info(
+            "GenAIKeys initialized (backend=%s, cache_duration=%ds)",
+            type(plugin).__name__,
+            cache_duration,
+        )
 
     @classmethod
     def from_defaults(cls, cache_duration: int = 3600, vault_url: str | None = None):
@@ -64,3 +72,18 @@ class GenAIKeys(metaclass=SingletonMeta):
 
     def get_gemini_key(self) -> str:
         return self.get("GEMINI_API_KEY")
+
+    def __getattr__(self, name: str) -> str:
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return self._manager.get_secret(name)
+
+    def __getitem__(self, name: str) -> str:
+        return self._manager.get_secret(name)
+
+    def __contains__(self, name: str) -> bool:
+        try:
+            self._manager.get_secret(name)
+        except Exception:
+            return False
+        return True

@@ -1,9 +1,12 @@
 import functools
+import logging
 
 import boto3
 
 from ..plugins.base import SecretManagerPlugin
 from ..settings.aws import AWSSettings
+
+logger = logging.getLogger(__name__)
 
 
 class AWSSecretsManagerPlugin(SecretManagerPlugin):
@@ -19,9 +22,19 @@ class AWSSecretsManagerPlugin(SecretManagerPlugin):
             region_name=cfg.aws_default_region,
         )
         self.client = session.client("secretsmanager")
+        logger.debug(
+            "AWS Secrets Manager client initialized (region=%s, profile=%s)",
+            cfg.aws_default_region,
+            cfg.aws_profile,
+        )
 
     def get_secret(self, secret_name: str) -> str:
-        response = self.client.get_secret_value(SecretId=secret_name)
+        logger.debug("AWS get_secret_value SecretId=%r", secret_name)
+        try:
+            response = self.client.get_secret_value(SecretId=secret_name)
+        except Exception as exc:
+            logger.error("AWS get_secret_value failed for %r: %s", secret_name, exc)
+            raise
         return str(response["SecretString"])
 
     @functools.lru_cache(1, typed=True)

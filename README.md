@@ -250,6 +250,18 @@ entry-point group and instantiate them through `GenAIKeys.backend("name", **kwar
 
 ---
 
+
+## Logging
+
+from genaikeys import enable_logging, disable_logging
+enable_logging()                       # INFO to stderr
+enable_logging(level="DEBUG")          # full trace
+enable_logging(handler=my_handler)     # custom sink
+disable_logging()                      # back to silent
+
+---
+
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).

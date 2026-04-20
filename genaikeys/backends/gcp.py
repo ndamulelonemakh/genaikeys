@@ -18,14 +18,16 @@ class GCPSecretManagerPlugin(SecretManagerPlugin):
         cfg = GCPSettings(**overrides)
         self.client = secretmanager_v1.SecretManagerServiceClient()
         self.project_id = cfg.google_cloud_project
+        logger.debug("GCP Secret Manager client initialized (project=%s)", self.project_id)
 
     def get_secret(self, secret_name: str) -> str:
         name = f"projects/{self.project_id}/secrets/{secret_name}/versions/latest"
+        logger.debug("GCP access_secret_version name=%s", name)
         try:
             response = self.client.access_secret_version(request={"name": name})
             return response.payload.data.decode("UTF-8")
         except Exception as exc:
-            logger.error("Failed to retrieve secret '%s': %s", secret_name, exc)
+            logger.error("GCP access_secret_version failed for %r: %s", secret_name, exc)
             raise
 
     @functools.lru_cache(maxsize=1, typed=True)

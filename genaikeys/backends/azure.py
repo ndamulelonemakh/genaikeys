@@ -1,10 +1,13 @@
 import functools
+import logging
 
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 
 from ..plugins.base import SecretManagerPlugin
 from ..settings.azure import AzureKeyVaultSettings
+
+logger = logging.getLogger(__name__)
 
 
 class AzureKeyVaultPlugin(SecretManagerPlugin):
@@ -20,17 +23,29 @@ class AzureKeyVaultPlugin(SecretManagerPlugin):
         )
         self.vault_url = cfg.azure_key_vault_url
         self.client = SecretClient(vault_url=self.vault_url, credential=credential)
+        logger.debug(
+            "Azure Key Vault client initialized (vault_url=%s, managed_identity=%s)",
+            self.vault_url,
+            bool(cfg.managed_identity_client_id),
+        )
 
     @staticmethod
     def _standard_kv_secret_name(secret_name: str) -> str:
         return secret_name.replace("_", "-")
 
     def get_secret(self, secret_name: str) -> str:
-        secret_name = self._standard_kv_secret_name(secret_name)
-        secret = self.client.get_secret(secret_name)
+        normalized = self._standard_kv_secret_name(secret_name)
+        if normalized != secret_name:
+            logger.debug("normalized secret name %r -> %r", secret_name, normalized)
+        try:
+            secret = self.client.get_secret(normalized)
+        except Exception as exc:
+            logger.error("Azure Key Vault get_secret failed for %r: %s", normalized, exc)
+            raise
         value = secret.value
         if value is None:
-            raise KeyError(f"Secret '{secret_name}' has no value")
+            logger.warning("Azure Key Vault returned empty value for %r", normalized)
+            raise KeyError(f"Secret '{normalized}' has no value")
         return value
 
     @functools.lru_cache(maxsize=1, typed=True)
