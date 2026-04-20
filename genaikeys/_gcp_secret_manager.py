@@ -56,11 +56,11 @@ class GCPSecretManagerPlugin(SecretManagerPlugin):
             logger.error("Failed to retrieve secret '%s': %s", secret_name, e)
             raise
 
-    @functools.lru_cache(maxsize=1, typed=True)
+    @functools.lru_cache(maxsize=1, typed=True)  # noqa: B019
     def list_secrets(self, max_results: int = 100) -> list[str]:
         parent = f"projects/{self.project_id}"
         response = self.client.list_secrets(request={"parent": parent, "pageSize": max_results})
-        return [secret.name.split('/')[-1] for secret in response]
+        return [secret.name.split("/")[-1] for secret in response]
 
     def exists(self, secret_name: str, **kwargs) -> bool:
         name = f"projects/{self.project_id}/secrets/{secret_name}"

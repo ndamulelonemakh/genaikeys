@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 
 class InMemorySecretManager:
-
     def __init__(self, plugin: SecretManagerPlugin, cache_duration: int = 3600):
         self._cache_lock = threading.Lock()
         self.plugin = plugin
@@ -28,13 +27,10 @@ class InMemorySecretManager:
             if secret_name in self.cache:
                 cached_secret = self.cache[secret_name]
                 if current_time - cached_secret["timestamp"] < self.cache_duration:
-                    return cached_secret["value"]
+                    return str(cached_secret["value"])
 
-            secret_value = self.plugin.get_secret(secret_name)
-            self.cache[secret_name] = {
-                "value": secret_value,
-                "timestamp": current_time
-            }
+            secret_value: str = self.plugin.get_secret(secret_name)
+            self.cache[secret_name] = {"value": secret_value, "timestamp": current_time}
             return secret_value
 
     def invalidate_cache(self, secret_name: str | None = None) -> None:

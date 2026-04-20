@@ -45,7 +45,7 @@ class AzureKeyVaultPlugin(SecretManagerPlugin):
         overrides = {}
         if vault_url is not None:
             overrides["azure_key_vault_url"] = vault_url
-        cfg = AzureKeyVaultSettings(**overrides)
+        cfg = AzureKeyVaultSettings(**overrides)  # type: ignore[arg-type]
 
         credential = DefaultAzureCredential(
             managed_identity_client_id=cfg.managed_identity_client_id,
@@ -62,12 +62,18 @@ class AzureKeyVaultPlugin(SecretManagerPlugin):
     def get_secret(self, secret_name: str) -> str:
         secret_name = self._standard_kv_secret_name(secret_name)
         secret = self.client.get_secret(secret_name)
-        return secret.value
+        value = secret.value
+        if value is None:
+            raise KeyError(f"Secret '{secret_name}' has no value")
+        return value
 
-    @functools.lru_cache(maxsize=1, typed=True)
+    @functools.lru_cache(maxsize=1, typed=True)  # noqa: B019
     def list_secrets(self, max_results: int = 100) -> list[str]:
-        return [secret.name
-                for secret in self.client.list_properties_of_secrets(max_page_size=max_results)]
+        return [
+            secret.name
+            for secret in self.client.list_properties_of_secrets(max_page_size=max_results)
+            if secret.name is not None
+        ]
 
     def exists(self, secret_name: str, **kwargs) -> bool:
         return self._standard_kv_secret_name(secret_name) in self.list_secrets(**kwargs)

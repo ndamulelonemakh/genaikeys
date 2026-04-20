@@ -462,3 +462,61 @@ class TestSecretKeeperFactories:
             with patch.dict("os.environ", {"GOOGLE_CLOUD_PROJECT": "env-project"}):
                 SecretKeeper.gcp()
             MockPlugin.assert_called_once_with(project_id=None)
+
+
+# ---------------------------------------------------------------------------
+# Error handling tests
+# ---------------------------------------------------------------------------
+
+class TestErrorHandling:
+    """Verify graceful behaviour when the underlying plugin raises errors."""
+
+    def test_plugin_runtime_error_propagates(self):
+        """A RuntimeError from the plugin is not swallowed."""
+
+        class FailingPlugin(SecretManagerPlugin):
+            def get_secret(self, secret_name: str) -> str:
+                raise RuntimeError("Network unreachable")
+
+        sk = SecretKeeper(FailingPlugin())
+        with pytest.raises(RuntimeError, match="Network unreachable"):
+            sk.get("ANY_KEY")
+
+    def test_plugin_permission_error_propagates(self):
+        """A PermissionError (e.g. 403) from the plugin is surfaced."""
+
+        class ForbiddenPlugin(SecretManagerPlugin):
+            def get_secret(self, secret_name: str) -> str:
+                raise PermissionError("Access denied: 403 Forbidden")
+
+        sk = SecretKeeper(ForbiddenPlugin())
+        with pytest.raises(PermissionError, match="403"):
+            sk.get("ANY_KEY")
+
+    def test_cache_does_not_cache_errors(self):
+        """If get_secret raises, the error is NOT cached — next call retries."""
+        call_count = 0
+
+        class FlakeyPlugin(SecretManagerPlugin):
+            def get_secret(self, secret_name: str) -> str:
+                nonlocal call_count
+                call_count += 1
+                if call_count == 1:
+                    raise ConnectionError("Temporary failure")
+                return "recovered-value"
+
+        mgr = InMemorySecretManager(FlakeyPlugin(), cache_duration=60)
+        with pytest.raises(ConnectionError):
+            mgr.get_secret("K")
+        # Second call should succeed (error was not cached)
+        assert mgr.get_secret("K") == "recovered-value"
+        assert call_count == 2
+
+    def test_cache_ttl_forces_refetch(self):
+        """After TTL expires, the plugin is called again even for a cached key."""
+        plugin = _FakePlugin({"K": "v"})
+        mgr = InMemorySecretManager(plugin, cache_duration=0)
+        mgr.get_secret("K")
+        time.sleep(0.01)
+        mgr.get_secret("K")
+        assert plugin.call_count == 2

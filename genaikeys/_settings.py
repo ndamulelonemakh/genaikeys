@@ -8,8 +8,6 @@ constructor kwargs, which takes precedence over the environment — so passing
 is not supplied.
 """
 
-from typing import Optional
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,7 +23,7 @@ class AzureKeyVaultSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
     azure_key_vault_url: str
-    managed_identity_client_id: Optional[str] = None
+    managed_identity_client_id: str | None = None
     secretkeeper_debug: bool = False
 
 
@@ -52,7 +50,7 @@ class AWSSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
     aws_default_region: str
-    aws_profile: Optional[str] = None
+    aws_profile: str | None = None
 
 
 class GCPSettings(BaseSettings):

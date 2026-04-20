@@ -22,16 +22,16 @@ class AWSSecretsManagerPlugin(SecretManagerPlugin):
             profile_name=cfg.aws_profile,
             region_name=cfg.aws_default_region,
         )
-        self.client = session.client('secretsmanager')
+        self.client = session.client("secretsmanager")
 
     def get_secret(self, secret_name: str) -> str:
         response = self.client.get_secret_value(SecretId=secret_name)
-        return response['SecretString']
+        return str(response["SecretString"])
 
-    @functools.lru_cache(1, typed=True)
+    @functools.lru_cache(1, typed=True)  # noqa: B019
     def list_secrets(self, max_results: int = 100) -> list[str]:
         response = self.client.list_secrets(MaxResults=max_results)
-        return [secret['Name'] for secret in response['SecretList']]
+        return [secret["Name"] for secret in response["SecretList"]]
 
     def exists(self, secret_name: str, **kwargs) -> bool:
         return secret_name in self.list_secrets()

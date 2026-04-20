@@ -8,8 +8,8 @@ Thank you for your interest in contributing!
 git clone https://github.com/ndamulelonemakh/genaikeys.git
 cd genaikeys
 
-# Install with dev dependencies (Poetry)
-poetry install --with dev
+# Install with uv (recommended)
+uv sync --all-extras
 
 # Or plain pip
 pip install -e ".[all]"
@@ -30,6 +30,7 @@ The test suite uses mocks — no live cloud credentials are required.
 
 ```bash
 ruff check genaikeys/
+ruff format --check genaikeys/
 ```
 
 ## Pull Requests
@@ -42,4 +43,4 @@ ruff check genaikeys/
 ## Reporting Issues
 
 Please use [GitHub Issues](https://github.com/ndamulelonemakh/genaikeys/issues).
-For security vulnerabilities, see [SECURITY.md](SECURITY.md) if present, or email the maintainer directly.
+For security vulnerabilities, see [SECURITY.md](SECURITY.md).

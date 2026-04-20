@@ -1,0 +1,11 @@
+# Default owners for everything
+* @ndamulelonemakh
+
+# Core library
+/genaikeys/ @ndamulelonemakh
+
+# Tests
+/tests/ @ndamulelonemakh
+
+# CI/CD
+/.github/ @ndamulelonemakh

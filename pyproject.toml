@@ -1,31 +1,50 @@
-[tool.poetry]
+[project]
 name = "genaikeys"
-version = "0.1.0"
+version = "1.0.0"
 description = "A convenient secret retrieval proxy backed by cloud scale secret vaults"
-authors = ["Ndamulelo Nemakhavhani <ndamulelo@rihonegroup.com>"]
-license = "MIT"
+authors = [{ name = "Ndamulelo Nemakhavhani", email = "ndamulelo@rihonegroup.com" }]
+license = { text = "MIT" }
 readme = "README.md"
-packages = [{ include = "genaikeys", from = "." }]
+requires-python = ">=3.10, <4.0"
 keywords = ["secrets", "AI", "cloud", "vault", "security"]
-repository = "https://github.com/ndamulelonemakh/genaikeys"
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Intended Audience :: Developers",
     "Topic :: Security",
 ]
+dependencies = [
+    "cryptography>=46.0.0",
+    "azure-identity>=1.25.0",
+    "azure-keyvault-secrets>=4.10.0",
+    "pydantic-settings>=2.13.0",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.10, <4.0"
-cryptography = "^46.0.0"
-azure-identity = "^1.25.0"
-azure-keyvault-secrets = "^4.10.0"
-pydantic-settings = "^2.13.0"
+[project.urls]
+Repository = "https://github.com/ndamulelonemakh/genaikeys"
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^9.0"
-pytest-cov = "^7.0"
+[project.optional-dependencies]
+aws = ["boto3"]
+gcp = ["google-cloud-secret-manager"]
+all = ["boto3", "google-cloud-secret-manager"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0,<10.0",
+    "pytest-cov>=7.0,<8.0",
+    "mypy>=1.15,<2.0",
+    "ruff>=0.11,<1.0",
+    "pre-commit>=4.2,<5.0",
+    "tox>=4.0,<5.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -41,12 +60,21 @@ markers = [
 source = ["genaikeys"]
 omit = ["tests/*"]
 
-[tool.poetry.extras]
-aws = ["boto3"]
-gcp = ["google-cloud-secret-manager"]
-all = ["boto3", "google-cloud-secret-manager"]
+[tool.coverage.report]
+fail_under = 80
 
+[tool.ruff]
+target-version = "py310"
+line-length = 120
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
