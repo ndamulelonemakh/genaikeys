@@ -1,33 +1,45 @@
-# GenAIKeys Documentation
+# GenAIKeys
 
-GenAIKeys is a Python library that streamlines API key management for Generative AI
-applications by securely retrieving secrets from cloud vaults.
+Secure API key management for Generative AI applications, backed by
+[Azure Key Vault](https://azure.microsoft.com/en-us/services/key-vault/),
+[AWS Secrets Manager](https://aws.amazon.com/secrets-manager/), and
+[Google Secret Manager](https://cloud.google.com/secret-manager).
 
-## Overview
+## Why GenAIKeys?
 
-- **Secure by default** — uses keyless authentication (Managed Identity, IAM roles, ADC)
-- **Multi-cloud** — Azure Key Vault, AWS Secrets Manager, Google Secret Manager
-- **Cached** — in-memory TTL cache to minimise vault API calls
-- **Extensible** — plugin interface for custom backends
-- **Thread-safe** — singleton with locked cache
+- **One API across clouds** — swap providers without touching application code.
+- **Keyless authentication by default** — Managed Identity, IAM roles, ADC.
+- **Built-in TTL cache** — fewer vault calls, lower bills.
+- **Convenience helpers** for OpenAI, Anthropic, and Gemini keys.
+- **Pluggable** — bring your own backend in a few lines.
 
-## Quick Start
+## Install
+
+```bash
+pip install genaikeys              # Azure (default)
+pip install "genaikeys[aws]"
+pip install "genaikeys[gcp]"
+pip install "genaikeys[all]"
+```
+
+## Quick start
 
 ```python
 from genaikeys import GenAIKeys
 
 sk = GenAIKeys.azure()
-key = sk.get("OPENAI_API_KEY")
+api_key = sk.get_openai_key()
 ```
 
 ## Documentation
 
-- [Configuration](configuration.md) — per-provider authentication setup
-- [Custom Backends](custom-backends.md) — implementing your own secret provider
+- [Configuration & authentication](configuration.md) — per-provider setup for Azure, AWS, GCP.
+- [Custom backends](custom-backends.md) — implement your own secret store.
+- [Logging](logging.md) — enable, disable, route to a custom handler.
 
-## Links
+## Project links
 
-- [GitHub Repository](https://github.com/ndamulelonemakh/genaikeys)
-- [PyPI Package](https://pypi.org/project/genaikeys/)
-- [CHANGELOG](../CHANGELOG.md)
-- [CONTRIBUTING](../CONTRIBUTING.md)
+- [GitHub repository](https://github.com/ndamulelonemakh/genaikeys)
+- [PyPI package](https://pypi.org/project/genaikeys/)
+- [Changelog](https://github.com/ndamulelonemakh/genaikeys/blob/main/CHANGELOG.md)
+- [Contributing](https://github.com/ndamulelonemakh/genaikeys/blob/main/CONTRIBUTING.md)

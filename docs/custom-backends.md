@@ -63,6 +63,9 @@ class SecretManagerPlugin(abc.ABC):
 Only `get_secret` is required. The `exists` and `list_secrets` methods are optional
 and raise `NotImplementedError` by default.
 
+If your backend is expensive to probe, you can omit `exists` and `list_secrets`
+entirely. `GenAIKeys.get()` only requires `get_secret()`.
+
 ## Caching
 
 Your custom plugin automatically gets in-memory caching when passed to `GenAIKeys`:
@@ -77,3 +80,12 @@ sk = GenAIKeys(MyPlugin(), cache_duration=600)
 The built-in backends live under `genaikeys.backends`. Third-party packages can
 register their own backend class in the `genaikeys.backends` entry-point group
 and users can instantiate it with `GenAIKeys.backend("your-backend", **kwargs)`.
+
+You can also inspect or resolve registered backends directly:
+
+```python
+from genaikeys.plugins import available_backends, load_backend
+
+print(available_backends())
+plugin_class = load_backend("your-backend")
+```

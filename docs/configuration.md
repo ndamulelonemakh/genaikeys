@@ -11,6 +11,7 @@ are stored in code.
 ```python
 from genaikeys import GenAIKeys
 
+sk = GenAIKeys.azure()
 sk = GenAIKeys.azure(vault_url="https://my-vault.vault.azure.net/")
 ```
 
@@ -47,6 +48,7 @@ converts `_` → `-` when querying, so `sk.get("OPENAI_API_KEY")` looks up `OPEN
 ```python
 from genaikeys import GenAIKeys
 
+sk = GenAIKeys.aws()
 sk = GenAIKeys.aws(region_name="us-east-1")
 # Or with SSO profile:
 sk = GenAIKeys.aws(region_name="us-east-1", profile_name="my-sso")
@@ -78,6 +80,7 @@ Uses the standard [boto3 credential chain](https://docs.aws.amazon.com/sdkref/la
 ```python
 from genaikeys import GenAIKeys
 
+sk = GenAIKeys.gcp()
 sk = GenAIKeys.gcp(project_id="my-gcp-project")
 ```
 
@@ -109,4 +112,15 @@ sk = GenAIKeys.azure(cache_duration=300)  # 5-minute TTL
 
 sk.clear("OPENAI_API_KEY")  # Invalidate one key
 sk.clear()                   # Invalidate all
+```
+
+## Logging
+
+The package logger is silent by default. For local debugging:
+
+```python
+from genaikeys import disable_logging, enable_logging
+
+enable_logging(level="DEBUG")
+disable_logging()
 ```
