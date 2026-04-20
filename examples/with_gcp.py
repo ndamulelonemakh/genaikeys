@@ -1,8 +1,8 @@
-from genaikeys import SecretKeeper
+from genaikeys import GenAIKeys
 
 
 def main():
-    sck = SecretKeeper.gcp()
+    sck = GenAIKeys.gcp()
     # This assumes that you already have a secret called "my-secret" in your secret manager
     # We do not support writing secrets to the secret manager, only reading
     print("[GCP] my-secret: ", sck.get_secret("my-secret"))

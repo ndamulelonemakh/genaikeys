@@ -1,0 +1,18 @@
+title: GenAIKeys
+description: Secure secret retrieval for Generative AI applications across Azure, AWS, and GCP.
+theme: jekyll-theme-cayman
+show_downloads: false
+github:
+  repository_url: https://github.com/ndamulelonemakh/genaikeys
+  repository_nwo: ndamulelonemakh/genaikeys
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+exclude:
+  - README.md
