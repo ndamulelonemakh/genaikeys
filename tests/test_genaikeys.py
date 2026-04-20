@@ -247,11 +247,11 @@ class TestFallbackEnv:
             result = sk.get_many(["A", "B"])
         assert result == {"A": "from-vault", "B": "from-env"}
 
-    def test_fallback_logs_info(self, caplog):
+    def test_fallback_logs_warning(self, caplog):
         import logging
 
         plugin = FakePlugin({})
         sk = GenAIKeys(plugin, fallback_env=True)
-        with caplog.at_level(logging.INFO, logger="genaikeys"), patch.dict(os.environ, {"K": "v"}):
+        with caplog.at_level(logging.WARNING, logger="genaikeys"), patch.dict(os.environ, {"K": "v"}):
             sk.get("K")
         assert any("environment fallback" in r.getMessage() for r in caplog.records)

@@ -68,31 +68,32 @@ class GenAIKeys:
         backend_class = load_backend(name)
         return cls(backend_class(**kwargs), cache_duration, fallback_env=fallback_env)
 
+    def _env_fallback(self, secret_name: str, exc: BaseException) -> str:
+        value = os.environ.get(secret_name)
+        if value is None:
+            raise exc
+        logger.warning(
+            "backend lookup for %r failed (%s); using environment fallback",
+            secret_name,
+            type(exc).__name__,
+        )
+        return value
+
     def _resolve(self, secret_name: str) -> str:
         try:
             return self._manager.get_secret(secret_name)
-        except Exception:
+        except Exception as exc:
             if not self._fallback_env:
                 raise
-            value = os.environ.get(secret_name)
-            if value is not None:
-                logger.info("using environment fallback for %r", secret_name)
-                return value
-            raise
+            return self._env_fallback(secret_name, exc)
 
     async def _aresolve(self, secret_name: str) -> str:
         try:
             return await self._manager.aget_secret(secret_name)
-        except Exception:
+        except Exception as exc:
             if not self._fallback_env:
                 raise
-            value = os.environ.get(secret_name)
-            if value is not None:
-                logger.info("using environment fallback for %r", secret_name)
-                return value
-            raise
-
-    # --- sync API ---
+            return self._env_fallback(secret_name, exc)
 
     def get_secret(self, secret_name: str) -> str:
         return self._resolve(secret_name)
@@ -115,16 +116,12 @@ class GenAIKeys:
     def get_gemini_key(self) -> str:
         return self.get("GEMINI_API_KEY")
 
-    # --- async API ---
-
     async def aget(self, secret_name: str) -> str:
         return await self._aresolve(secret_name)
 
     async def aget_many(self, secret_names: list[str]) -> dict[str, str]:
         values = await asyncio.gather(*(self._aresolve(name) for name in secret_names))
         return dict(zip(secret_names, values, strict=True))
-
-    # --- context managers ---
 
     def __enter__(self) -> "GenAIKeys":
         return self
@@ -137,8 +134,6 @@ class GenAIKeys:
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
         self.clear()
-
-    # --- dunder access ---
 
     def __getattr__(self, name: str) -> str:
         if name.startswith("_") or not _is_secret_attr(name):

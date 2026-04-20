@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0rc3] - Unreleased
 
 ### Added
+- Async API: `await sk.aget(name)`, `await sk.aget_many(names)`, and `async with GenAIKeys(...) as sk:` (#11). Implemented via `asyncio.to_thread`; cache hits short-circuit without a thread hop. Cache is shared between sync and async access.
+- Bulk fetch: `sk.get_many([...])` returns a `dict[str, str]` and uses cached values where available (#13).
+- Optional environment-variable fallback: `GenAIKeys(..., fallback_env=True)` (also on every factory). When the backend lookup raises, the matching `os.environ` entry is returned. Logs a `WARNING` when the fallback is used so the masking is observable (#14).
 - Context manager protocol on `GenAIKeys`: `with GenAIKeys.azure() as sk: ...` automatically clears cached secrets on exit (#9).
 - Stronger redaction guarantee: backend exception messages are no longer interpolated into log records — only the exception type is logged, so a misbehaving backend cannot leak a secret value via logs (#10).
 - Regression test asserting per-instance cache isolation across backends.

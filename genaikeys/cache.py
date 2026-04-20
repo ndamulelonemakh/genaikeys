@@ -56,6 +56,11 @@ class InMemorySecretManager:
                 del self._cache[secret_name]
 
     async def aget_secret(self, secret_name: str) -> str:
+        with self._cache_lock:
+            if secret_name in self._cache:
+                cached_secret = self._cache[secret_name]
+                if time.time() - cached_secret["timestamp"] < self._cache_duration:
+                    return str(cached_secret["value"])
         return await asyncio.to_thread(self.get_secret, secret_name)
 
     def __repr__(self) -> str:
