@@ -34,6 +34,7 @@ api_key = sk.get_openai_key()
 ## Documentation
 
 - [Configuration & authentication](configuration.md) — per-provider setup for Azure, AWS, GCP.
+- [CLI](cli.md) — populate `.env` files from a vault.
 - [Custom backends](custom-backends.md) — implement your own secret store.
 - [Logging](logging.md) — enable, disable, route to a custom handler.
 

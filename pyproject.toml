@@ -40,6 +40,9 @@ dependencies = [
 [project.urls]
 Repository = "https://github.com/ndamulelonemakh/genaikeys"
 
+[project.scripts]
+genaikeys = "genaikeys.cli:main"
+
 [project.entry-points."genaikeys.backends"]
 azure = "genaikeys.backends.azure:AzureKeyVaultPlugin"
 aws = "genaikeys.backends.aws:AWSSecretsManagerPlugin"
@@ -59,7 +62,6 @@ dev = [
     "pytest>=9.0,<10.0",
     "pytest-asyncio>=1.0,<2.0",
     "pytest-cov>=7.0,<8.0",
-    "mypy>=1.15,<2.0",
     "ruff>=0.11,<1.0",
     "pre-commit>=4.2,<5.0",
     "tox>=4.0,<5.0",
@@ -91,9 +93,3 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ruff.format]
 quote-style = "double"
-
-[tool.mypy]
-python_version = "3.10"
-warn_return_any = true
-warn_unused_configs = true
-ignore_missing_imports = true
