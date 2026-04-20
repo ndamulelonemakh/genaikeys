@@ -10,6 +10,9 @@ class SecretManagerPlugin(abc.ABC):
     async def aget_secret(self, secret_name: str) -> str:
         return await asyncio.to_thread(self.get_secret, secret_name)
 
+    def set_secret(self, secret_name: str, value: str) -> None:
+        raise NotImplementedError
+
     def exists(self, secret_name: str, **kwargs) -> bool:
         raise NotImplementedError
 

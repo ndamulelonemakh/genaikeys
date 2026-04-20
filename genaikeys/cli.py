@@ -102,6 +102,17 @@ def fill_env_file(
     return "".join(out_lines), filled, missing
 
 
+def parse_env_file(source: str) -> list[tuple[str, str]]:
+    """Return non-empty (key, value) pairs from a .env-style string, preserving order."""
+    pairs: list[tuple[str, str]] = []
+    for raw in source.splitlines():
+        parsed = _parse_line(raw)
+        if parsed.key is None or parsed.value is None or parsed.value == "":
+            continue
+        pairs.append((parsed.key, parsed.value))
+    return pairs
+
+
 def _build_keeper(args: argparse.Namespace) -> GenAIKeys:
     backend = args.backend
     if args.keyvault and backend in (None, "azure"):
@@ -161,6 +172,61 @@ def _cmd_fill(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_push(args: argparse.Namespace) -> int:
+    source_path = Path(args.file)
+    if not source_path.is_file():
+        print(f"error: {source_path} not found", file=sys.stderr)
+        return 2
+
+    pairs = parse_env_file(source_path.read_text(encoding="utf-8"))
+    only = {k.strip() for k in args.only.split(",")} if args.only else None
+    if only:
+        pairs = [(k, v) for k, v in pairs if k in only]
+
+    if not pairs:
+        print("nothing to push (no non-empty keys matched)", file=sys.stderr)
+        return 0
+
+    keeper = _build_keeper(args)
+    pushed: list[str] = []
+    skipped: list[str] = []
+    failed: list[tuple[str, str]] = []
+
+    for key, value in pairs:
+        if not args.overwrite:
+            try:
+                if keeper.exists(key):
+                    skipped.append(key)
+                    continue
+            except NotImplementedError:
+                pass
+            except Exception as exc:
+                logger.debug("exists() check failed for %s: %s", key, exc)
+        if args.dry_run:
+            pushed.append(key)
+            continue
+        try:
+            keeper.put(key, value)
+            pushed.append(key)
+        except Exception as exc:
+            failed.append((key, type(exc).__name__))
+
+    action = "would push" if args.dry_run else "pushed"
+    print(f"{action} {len(pushed)} secret(s) from {source_path}")
+    for key in pushed:
+        print(f"  + {key}")
+    if skipped:
+        print(f"skipped (already in vault, use --overwrite): {len(skipped)}", file=sys.stderr)
+        for key in skipped:
+            print(f"  = {key}", file=sys.stderr)
+    if failed:
+        print(f"failed ({len(failed)}):", file=sys.stderr)
+        for key, reason in failed:
+            print(f"  ! {key}: {reason}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="genaikeys",
@@ -198,6 +264,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="Exit with non-zero status when any key is missing in the vault.",
     )
     fill.set_defaults(func=_cmd_fill)
+
+    push = sub.add_parser("push", help="Upload values from a .env file into a secret vault.")
+    push.add_argument("file", help="Path to the .env file containing values to upload.")
+    push.add_argument(
+        "--backend",
+        choices=["azure", "aws", "gcp"],
+        default="azure",
+        help="Secret backend to use (default: azure).",
+    )
+    push.add_argument("--keyvault", help="Azure Key Vault URL (implies --backend azure).")
+    push.add_argument("--region", help="AWS region.")
+    push.add_argument("--profile", help="AWS profile.")
+    push.add_argument("--project-id", dest="project_id", help="GCP project id.")
+    push.add_argument(
+        "--only",
+        help="Comma-separated list of keys to push; others are ignored.",
+    )
+    push.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Overwrite secrets that already exist in the vault (default: skip).",
+    )
+    push.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be pushed without calling the backend.",
+    )
+    push.set_defaults(func=_cmd_push)
     return parser
 
 

@@ -104,6 +104,13 @@ class GenAIKeys:
     def get_many(self, secret_names: list[str]) -> dict[str, str]:
         return {name: self._resolve(name) for name in secret_names}
 
+    def put(self, secret_name: str, value: str) -> None:
+        self._manager._plugin.set_secret(secret_name, value)
+        self._manager.invalidate_cache(secret_name=secret_name)
+
+    def exists(self, secret_name: str) -> bool:
+        return self._manager._plugin.exists(secret_name)
+
     def clear(self, secret_name: str | None = None):
         self._manager.invalidate_cache(secret_name=secret_name)
 

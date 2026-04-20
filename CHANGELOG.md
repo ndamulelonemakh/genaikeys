@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `genaikeys` CLI with a `fill` subcommand that populates `.env` / `.env.example` files from a vault, e.g. `genaikeys fill .env --keyvault https://my-kv.vault.azure.net`. Supports `--backend {azure,aws,gcp}`, `--overwrite`, `--dry-run`, `--strict`, and `--output` (#1).
+- `genaikeys push` subcommand — inverse of `fill` — uploads values from a local `.env` file into the configured vault. Skips existing secrets by default; supports `--overwrite`, `--only`, and `--dry-run`. Backed by a new `SecretManagerPlugin.set_secret` hook and `GenAIKeys.put(name, value)` (#1).
 - Async API: `await sk.aget(name)`, `await sk.aget_many(names)`, and `async with GenAIKeys(...) as sk:` (#11). Implemented via `asyncio.to_thread`; cache hits short-circuit without a thread hop, and uncached async fetches are bounded to 32 concurrent backend calls per event loop. Cache is shared between sync and async access.
 - Bulk fetch: `sk.get_many([...])` returns a `dict[str, str]` and uses cached values where available (#13).
 - Optional environment-variable fallback: `GenAIKeys(..., fallback_env=True)` (also on every factory). When the backend lookup raises, the matching `os.environ` entry is returned. Logs a `WARNING` when the fallback is used so the masking is observable (#14).

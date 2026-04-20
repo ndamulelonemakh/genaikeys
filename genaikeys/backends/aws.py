@@ -37,6 +37,16 @@ class AWSSecretsManagerPlugin(SecretManagerPlugin):
             raise
         return str(response["SecretString"])
 
+    def set_secret(self, secret_name: str, value: str) -> None:
+        try:
+            self.client.put_secret_value(SecretId=secret_name, SecretString=value)
+        except self.client.exceptions.ResourceNotFoundException:
+            self.client.create_secret(Name=secret_name, SecretString=value)
+        except Exception as exc:
+            logger.error("AWS set_secret failed for %r: %s", secret_name, type(exc).__name__)
+            raise
+        self._list_secrets_cache.clear()
+
     def list_secrets(self, max_results: int = 100) -> list[str]:
         if max_results in self._list_secrets_cache:
             return self._list_secrets_cache[max_results]
