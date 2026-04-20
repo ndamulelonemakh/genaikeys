@@ -1,82 +1,19 @@
-"""
-End-to-end tests against real cloud backends.
-
-These tests make real network calls and require valid credentials.  They are
-**skipped automatically** when the relevant environment variables are absent or
-the optional cloud SDK extras are not installed.
-
-Run all e2e tests::
-
-    pytest -m e2e -v
-
-Run a single backend::
-
-    pytest -m "e2e and aws"   -v
-    pytest -m "e2e and azure" -v
-    pytest -m "e2e and gcp"   -v
-
-Required environment variables
--------------------------------
-AWS
-  AWS_DEFAULT_REGION        Region where secrets live (e.g. ``eu-west-1``)
-  E2E_AWS_SECRET_NAME       Name of an existing secret to read
-  Credentials (any one):
-    AWS_PROFILE             Named profile (``aws configure sso``)
-    AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY
-    IAM instance profile / IRSA (auto-detected, no extra vars needed)
-
-Azure
-  AZURE_KEY_VAULT_URL       Full vault URL (e.g. ``https://my-vault.vault.azure.net/``)
-  E2E_AZURE_SECRET_NAME     Name of an existing secret to read
-  Credentials (any one):
-    ``az login`` session
-    AZURE_CLIENT_ID + AZURE_TENANT_ID + AZURE_CLIENT_SECRET / AZURE_CLIENT_CERTIFICATE_PATH
-    Managed Identity (auto-detected on Azure-hosted compute)
-
-GCP
-  GOOGLE_CLOUD_PROJECT      GCP project ID
-  E2E_GCP_SECRET_NAME       Name of an existing secret to read
-  Credentials (any one):
-    ``gcloud auth application-default login``
-    GOOGLE_APPLICATION_CREDENTIALS (service-account key or WIF config)
-    Attached service account (auto-detected on GCE/GKE/Cloud Run/etc.)
-
-Optional assertion
-  E2E_<PROVIDER>_SECRET_EXPECTED_VALUE
-    When set the test asserts that the fetched secret value matches exactly.
-    Useful for CI pipelines where the test secret value is known.
-"""
+"""Live backend tests. Run with `pytest -m e2e` after setting the provider-specific env vars."""
 
 import os
 
 import pytest
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 
 def _require_env(*names: str, mark: str) -> None:
-    """Skip the test if any of *names* is unset."""
     missing = [n for n in names if not os.environ.get(n)]
     if missing:
         pytest.skip(f"[{mark}] required env var(s) not set: {', '.join(missing)}")
 
 
-# ---------------------------------------------------------------------------
-# AWS Secrets Manager
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.e2e
 @pytest.mark.aws
 class TestAWSE2E:
-    """Live tests against AWS Secrets Manager.
-
-    The boto3 credential chain is used — any valid credential source (instance
-    profile, IRSA, named profile, static keys) will work.
-    """
-
     @pytest.fixture(autouse=True)
     def _check_prereqs(self):
         pytest.importorskip("boto3", reason="boto3 not installed (pip install genaikeys[aws])")
@@ -115,20 +52,9 @@ class TestAWSE2E:
         )
 
 
-# ---------------------------------------------------------------------------
-# Azure Key Vault
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.e2e
 @pytest.mark.azure
 class TestAzureE2E:
-    """Live tests against Azure Key Vault.
-
-    DefaultAzureCredential is used — any credential source in the chain
-    (Managed Identity, az login, AZURE_CLIENT_* env vars, etc.) will work.
-    """
-
     @pytest.fixture(autouse=True)
     def _check_prereqs(self):
         pytest.importorskip(
@@ -167,20 +93,9 @@ class TestAzureE2E:
         )
 
 
-# ---------------------------------------------------------------------------
-# GCP Secret Manager
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.e2e
 @pytest.mark.gcp
 class TestGCPE2E:
-    """Live tests against Google Secret Manager.
-
-    Application Default Credentials (ADC) are used — any credential source
-    (gcloud ADC, GOOGLE_APPLICATION_CREDENTIALS, metadata server) will work.
-    """
-
     @pytest.fixture(autouse=True)
     def _check_prereqs(self):
         pytest.importorskip(
