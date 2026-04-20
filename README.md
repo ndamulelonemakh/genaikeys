@@ -9,7 +9,7 @@
 
 ```mermaid
 flowchart LR
-    App[Your AI App] -->|sk.get()| Cache{TTL Cache}
+    App[Your AI App] -->|sk.get| Cache{TTL Cache}
     
     subgraph GenAIKeys
         Cache
@@ -22,11 +22,11 @@ flowchart LR
 
 ## Why GenAIKeys?
 
-- **One API, three clouds** — swap providers without touching app code.
+- **One API, multiple vaults** — swap providers without touching app code.
 - **Keyless by default** — Managed Identity, IAM roles, ADC.
 - **TTL cache built in** — fewer vault calls, lower bills.
+- **Extensible** — bring your own backend in a few lines.
 - **Convenience helpers** for OpenAI, Anthropic, and Gemini.
-- **Pluggable** — bring your own backend in a few lines.
 
 ## Install
 
@@ -71,7 +71,7 @@ Full docs are published at **<https://ndamulelonemakh.github.io/genaikeys/>**:
 - [Custom backends](docs/custom-backends.md) — implement your own secret store.
 - [Logging](docs/logging.md) — enable, disable, route to a custom handler.
 
-## Caching at a glance
+## Caching
 
 ```python
 sk = GenAIKeys.azure(cache_duration=300)   # 5-minute TTL
@@ -79,7 +79,7 @@ sk.clear("OPENAI_API_KEY")                 # invalidate one key
 sk.clear()                                 # invalidate everything
 ```
 
-## Custom backend in 10 lines
+## Custom backends
 
 ```python
 from genaikeys import GenAIKeys
