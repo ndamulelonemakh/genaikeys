@@ -27,7 +27,7 @@ class GCPSecretManagerPlugin(SecretManagerPlugin):
             response = self.client.access_secret_version(request={"name": name})
             return response.payload.data.decode("UTF-8")
         except Exception as exc:
-            logger.error("GCP access_secret_version failed for %r: %s", secret_name, exc)
+            logger.error("GCP access_secret_version failed for %r: %s", secret_name, type(exc).__name__)
             raise
 
     def list_secrets(self, max_results: int = 100) -> list[str]:

@@ -39,6 +39,17 @@ class TestLogging:
             sk.get("NOPE")
         assert any(record.levelno == logging.WARNING for record in caplog.records)
 
+    def test_misbehaving_backend_exception_message_not_logged(self, caplog):
+        class LeakyPlugin(FakePlugin):
+            def get_secret(self, secret_name: str) -> str:
+                raise RuntimeError(f"failed with value=top-secret-leaked-{secret_name}")
+
+        sk = GenAIKeys(LeakyPlugin({}))
+        with caplog.at_level(logging.DEBUG, logger="genaikeys"), pytest.raises(RuntimeError):
+            sk.get("API_KEY")
+        joined = "\n".join(record.getMessage() for record in caplog.records)
+        assert "top-secret-leaked" not in joined
+
     def test_enable_logging_attaches_handler(self):
         from genaikeys import disable_logging, enable_logging
 

@@ -33,7 +33,7 @@ class AWSSecretsManagerPlugin(SecretManagerPlugin):
         try:
             response = self.client.get_secret_value(SecretId=secret_name)
         except Exception as exc:
-            logger.error("AWS get_secret_value failed for %r: %s", secret_name, exc)
+            logger.error("AWS get_secret_value failed for %r: %s", secret_name, type(exc).__name__)
             raise
         return str(response["SecretString"])
 

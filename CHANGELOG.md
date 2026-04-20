@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0rc3] - Unreleased
+
+### Added
+- Context manager protocol on `GenAIKeys`: `with GenAIKeys.azure() as sk: ...` automatically clears cached secrets on exit (#9).
+- Stronger redaction guarantee: backend exception messages are no longer interpolated into log records — only the exception type is logged, so a misbehaving backend cannot leak a secret value via logs (#10).
+- Regression test asserting per-instance cache isolation across backends.
+
+### Changed
+- **BREAKING:** `GenAIKeys` is no longer a singleton. Each call to `GenAIKeys(...)` (and the `azure()`/`aws()`/`gcp()`/`backend()` factories) now returns a fresh instance with its own private cache. This eliminates the cross-backend cache collision where a second `GenAIKeys.aws()` call would return the cached value of an earlier `GenAIKeys.azure()` call for the same secret name (#12, #15).
+- `SingletonMeta` is no longer exported from the package.
+
+### Removed
+- `SingletonMeta` metaclass on `GenAIKeys`.
+- Stray `del os.environ[secret_name]` call inside `invalidate_cache` (dead code).
+
 ## [1.0.0] - 2026-04-20
 
 First GA release.

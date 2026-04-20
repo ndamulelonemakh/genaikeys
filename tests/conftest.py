@@ -3,15 +3,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from genaikeys import SingletonMeta
-
-
-@pytest.fixture(autouse=True)
-def reset_singleton():
-    SingletonMeta._instances.clear()
-    yield
-    SingletonMeta._instances.clear()
-
 
 @pytest.fixture
 def mock_cloud_backends():

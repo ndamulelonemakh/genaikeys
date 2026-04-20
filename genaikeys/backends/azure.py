@@ -40,7 +40,7 @@ class AzureKeyVaultPlugin(SecretManagerPlugin):
         try:
             secret = self.client.get_secret(normalized)
         except Exception as exc:
-            logger.error("Azure Key Vault get_secret failed for %r: %s", normalized, exc)
+            logger.error("Azure Key Vault get_secret failed for %r: %s", normalized, type(exc).__name__)
             raise
         value = secret.value
         if value is None:

@@ -1,6 +1,5 @@
 import logging
 import re
-import threading
 
 from .cache import InMemorySecretManager
 from .plugins import SecretManagerPlugin, load_backend
@@ -14,19 +13,7 @@ def _is_secret_attr(name: str) -> bool:
     return bool(_SECRET_ATTR_RE.match(name))
 
 
-class SingletonMeta(type):
-    _instances: dict[type, object] = {}
-    _lock = threading.Lock()
-
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            with cls._lock:
-                if cls not in cls._instances:
-                    cls._instances[cls] = super().__call__(*args, **kwargs)
-        return cls._instances[cls]
-
-
-class GenAIKeys(metaclass=SingletonMeta):
+class GenAIKeys:
     def __init__(self, plugin: SecretManagerPlugin, cache_duration: int = 3600):
         self._manager = InMemorySecretManager(plugin, cache_duration)
         logger.info(
@@ -80,6 +67,12 @@ class GenAIKeys(metaclass=SingletonMeta):
     def get_gemini_key(self) -> str:
         return self.get("GEMINI_API_KEY")
 
+    def __enter__(self) -> "GenAIKeys":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.clear()
+
     def __getattr__(self, name: str) -> str:
         if name.startswith("_") or not _is_secret_attr(name):
             raise AttributeError(name)
@@ -109,10 +102,3 @@ class GenAIKeys(metaclass=SingletonMeta):
 
     def __deepcopy__(self, memo):
         raise TypeError("GenAIKeys is not copyable: refusing to duplicate cached secrets")
-
-
-_SECRET_ATTR_RE = __import__("re").compile(r"^[A-Z][A-Z0-9_]*$")
-
-
-def _is_secret_attr(name: str) -> bool:
-    return bool(_SECRET_ATTR_RE.match(name))

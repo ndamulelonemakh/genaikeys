@@ -1,5 +1,4 @@
 import logging
-import os
 import threading
 import time
 from typing import Any
@@ -39,7 +38,7 @@ class InMemorySecretManager:
                     "backend %s failed to fetch %r: %s",
                     type(self._plugin).__name__,
                     secret_name,
-                    exc,
+                    type(exc).__name__,
                 )
                 raise
             self._cache[secret_name] = {"value": secret_value, "timestamp": current_time}
@@ -54,8 +53,6 @@ class InMemorySecretManager:
             elif secret_name in self._cache:
                 logger.debug("invalidating cache entry %r", secret_name)
                 del self._cache[secret_name]
-                if secret_name in os.environ:
-                    del os.environ[secret_name]
 
     def __repr__(self) -> str:
         return f"<InMemorySecretManager backend={type(self._plugin).__name__} entries=redacted>"
