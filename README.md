@@ -1,6 +1,6 @@
 # GenAIKeys
 
-[![PyPI version](https://badge.fury.io/py/genaikeys.svg)](https://badge.fury.io/py/genaikeys)
+[![PyPI version](https://img.shields.io/pypi/v/genaikeys.svg)](https://pypi.org/project/genaikeys/)
 [![CI](https://github.com/ndamulelonemakh/genaikeys/actions/workflows/ci.yml/badge.svg)](https://github.com/ndamulelonemakh/genaikeys/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
@@ -61,16 +61,16 @@ Factory methods read defaults from the environment:
 > **Azure tip:** Key Vault disallows underscores in secret names. GenAIKeys auto-converts
 > `_` → `-`, so `sk.get("OPENAI_API_KEY")` looks up `OPENAI-API-KEY`.
 
-Working examples for each cloud live in [`examples/`](examples/).
+Working examples for each cloud live in [`examples/`](https://github.com/ndamulelonemakh/genaikeys/tree/main/examples).
 
 ## Documentation
 
 Full docs are published at **<https://ndamulelonemakh.github.io/genaikeys/>**:
 
-- [Configuration & authentication](docs/configuration.md) — Azure, AWS, GCP setup, credential chains, IAM/RBAC requirements.
-- [CLI](docs/cli.md) — populate `.env` files from a vault.
-- [Custom backends](docs/custom-backends.md) — implement your own secret store.
-- [Logging](docs/logging.md) — enable, disable, route to a custom handler.
+- [Configuration & authentication](https://github.com/ndamulelonemakh/genaikeys/blob/main/docs/configuration.md) — Azure, AWS, GCP setup, credential chains, IAM/RBAC requirements.
+- [CLI](https://github.com/ndamulelonemakh/genaikeys/blob/main/docs/cli.md) — populate `.env` files from a vault.
+- [Custom backends](https://github.com/ndamulelonemakh/genaikeys/blob/main/docs/custom-backends.md) — implement your own secret store.
+- [Logging](https://github.com/ndamulelonemakh/genaikeys/blob/main/docs/logging.md) — enable, disable, route to a custom handler.
 
 ## CLI
 
@@ -86,7 +86,7 @@ Or go the other way — upload values from a `.env` into a vault:
 genaikeys push .env --keyvault https://my-kv.vault.azure.net
 ```
 
-Only empty values are filled by default; `push` skips keys that already exist. See [docs/cli.md](docs/cli.md) for all options (`--backend`, `--overwrite`, `--dry-run`, `--strict`, `--only`, `--output`, …).
+Only empty values are filled by default; `push` skips keys that already exist. See [docs/cli.md](https://github.com/ndamulelonemakh/genaikeys/blob/main/docs/cli.md) for all options (`--backend`, `--overwrite`, `--dry-run`, `--strict`, `--only`, `--output`, …).
 
 ## Caching
 
@@ -109,12 +109,12 @@ class MyPlugin(SecretManagerPlugin):
 sk = GenAIKeys(MyPlugin())
 ```
 
-See [Custom backends](docs/custom-backends.md) for the full interface and entry-point registration.
+See [Custom backends](https://github.com/ndamulelonemakh/genaikeys/blob/main/docs/custom-backends.md) for the full interface and entry-point registration.
 
 ## Contributing
 
-PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) and [CHANGELOG.md](CHANGELOG.md).
+PRs welcome — see [CONTRIBUTING.md](https://github.com/ndamulelonemakh/genaikeys/blob/main/CONTRIBUTING.md) and [CHANGELOG.md](https://github.com/ndamulelonemakh/genaikeys/blob/main/CHANGELOG.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](https://github.com/ndamulelonemakh/genaikeys/blob/main/LICENSE).
