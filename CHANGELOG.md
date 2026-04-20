@@ -39,7 +39,6 @@ First GA release.
 - `poetry.toml` for consistent local development
 - `.vscode/settings.json` with format-on-save and ruff integration
 - `docs/` folder with configuration guide and custom backend documentation
-- `mypy` type checking in CI pipeline
 - `ruff format --check` enforcement in CI pipeline
 - Coverage threshold (80%) in pytest configuration
 - Additional tests for error handling and plugin interface
