@@ -16,7 +16,7 @@ class SingletonMeta(type):
         return cls._instances[cls]
 
 
-class SecretKeeper(metaclass=SingletonMeta):
+class GenAIKeys(metaclass=SingletonMeta):
     def __init__(self, plugin: SecretManagerPlugin, cache_duration: int = 3600):
         self._manager = InMemorySecretManager(plugin, cache_duration)
 

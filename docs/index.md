@@ -14,9 +14,9 @@ applications by securely retrieving secrets from cloud vaults.
 ## Quick Start
 
 ```python
-from genaikeys import SecretKeeper
+from genaikeys import GenAIKeys
 
-sk = SecretKeeper.azure()
+sk = GenAIKeys.azure()
 key = sk.get("OPENAI_API_KEY")
 ```
 

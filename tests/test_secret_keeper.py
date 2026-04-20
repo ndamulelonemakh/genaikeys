@@ -1,4 +1,4 @@
-"""Unit tests for SecretKeeper core functionality."""
+"""Unit tests for GenAIKeys core functionality."""
 
 import threading
 import time
@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
-from genaikeys import SecretKeeper, SecretManagerPlugin
+from genaikeys import GenAIKeys, SecretManagerPlugin
 from genaikeys.cache import InMemorySecretManager
 from genaikeys.settings import AWSSettings, AzureKeyVaultSettings, GCPSettings
 
@@ -38,7 +38,7 @@ class _FakePlugin(SecretManagerPlugin):
 
 @pytest.fixture(autouse=True)
 def reset_singleton():
-    """Reset the SecretKeeper singleton between tests."""
+    """Reset the GenAIKeys singleton between tests."""
     from genaikeys import SingletonMeta
 
     SingletonMeta._instances.clear()
@@ -57,7 +57,7 @@ class TestAzureKeyVaultSettings:
             cfg = AzureKeyVaultSettings()
         assert cfg.azure_key_vault_url == "https://vault.azure.net/"
         assert cfg.managed_identity_client_id is None
-        assert cfg.secretkeeper_debug is False
+        assert cfg.genaikeys_debug is False
 
     def test_constructor_override_takes_precedence(self):
         with patch.dict("os.environ", {"AZURE_KEY_VAULT_URL": "https://env-vault.azure.net/"}):
@@ -70,12 +70,12 @@ class TestAzureKeyVaultSettings:
             {
                 "AZURE_KEY_VAULT_URL": "https://vault.azure.net/",
                 "MANAGED_IDENTITY_CLIENT_ID": "my-client-id",
-                "SECRETKEEPER_DEBUG": "1",
+                "GENAIKEYS_DEBUG": "1",
             },
         ):
             cfg = AzureKeyVaultSettings()
         assert cfg.managed_identity_client_id == "my-client-id"
-        assert cfg.secretkeeper_debug is True
+        assert cfg.genaikeys_debug is True
 
     def test_raises_when_url_missing(self):
         with patch.dict("os.environ", {}, clear=True):
@@ -283,38 +283,38 @@ class TestInMemorySecretManager:
 
 
 # ---------------------------------------------------------------------------
-# SecretKeeper tests
+# GenAIKeys tests
 # ---------------------------------------------------------------------------
 
 
-class TestSecretKeeper:
+class TestGenAIKeys:
     def test_get_returns_secret(self):
         plugin = _FakePlugin({"MY_SECRET": "abc123"})
-        sk = SecretKeeper(plugin)
+        sk = GenAIKeys(plugin)
         assert sk.get("MY_SECRET") == "abc123"
 
     def test_get_secret_alias(self):
         plugin = _FakePlugin({"MY_SECRET": "abc123"})
-        sk = SecretKeeper(plugin)
+        sk = GenAIKeys(plugin)
         assert sk.get_secret("MY_SECRET") == "abc123"
 
     def test_get_does_not_store_in_environ(self):
         import os
 
         plugin = _FakePlugin({"MY_SECRET": "abc123"})
-        sk = SecretKeeper(plugin)
+        sk = GenAIKeys(plugin)
         sk.get("MY_SECRET")
         assert "MY_SECRET" not in os.environ
 
     def test_singleton_returns_same_instance(self):
         plugin = _FakePlugin({"K": "v"})
-        sk1 = SecretKeeper(plugin)
-        sk2 = SecretKeeper(plugin)
+        sk1 = GenAIKeys(plugin)
+        sk2 = GenAIKeys(plugin)
         assert sk1 is sk2
 
     def test_clear_specific_key(self):
         plugin = _FakePlugin({"K": "v"})
-        sk = SecretKeeper(plugin)
+        sk = GenAIKeys(plugin)
         sk.get("K")
         sk.clear("K")
         sk.get("K")
@@ -322,7 +322,7 @@ class TestSecretKeeper:
 
     def test_clear_all(self):
         plugin = _FakePlugin({"A": "1", "B": "2"})
-        sk = SecretKeeper(plugin)
+        sk = GenAIKeys(plugin)
         sk.get("A")
         sk.get("B")
         sk.clear()
@@ -332,22 +332,22 @@ class TestSecretKeeper:
 
     def test_get_openai_key(self):
         plugin = _FakePlugin({"OPENAI_API_KEY": "sk-openai"})
-        sk = SecretKeeper(plugin)
+        sk = GenAIKeys(plugin)
         assert sk.get_openai_key() == "sk-openai"
 
     def test_get_anthropic_key(self):
         plugin = _FakePlugin({"ANTHROPIC_API_KEY": "sk-ant"})
-        sk = SecretKeeper(plugin)
+        sk = GenAIKeys(plugin)
         assert sk.get_anthropic_key() == "sk-ant"
 
     def test_get_gemini_key(self):
         plugin = _FakePlugin({"GEMINI_API_KEY": "ai-gemini"})
-        sk = SecretKeeper(plugin)
+        sk = GenAIKeys(plugin)
         assert sk.get_gemini_key() == "ai-gemini"
 
     def test_missing_secret_raises(self):
         plugin = _FakePlugin({})
-        sk = SecretKeeper(plugin)
+        sk = GenAIKeys(plugin)
         with pytest.raises(KeyError):
             sk.get("DOES_NOT_EXIST")
 
@@ -378,7 +378,7 @@ class TestSecretManagerPlugin:
 
 
 # ---------------------------------------------------------------------------
-# SecretKeeper factory methods
+# GenAIKeys factory methods
 #
 # All tests use the ``mock_cloud_backends`` fixture (conftest.py) which stubs
 # the cloud SDK packages in sys.modules so the backend modules can be imported
@@ -393,28 +393,28 @@ class TestSecretManagerPlugin:
 # ---------------------------------------------------------------------------
 
 
-class TestSecretKeeperFactories:
+class TestGenAIKeysFactories:
     # --- missing config → ValidationError ---
 
     def test_azure_factory_raises_without_url(self, mock_cloud_backends):
         """Missing AZURE_KEY_VAULT_URL → pydantic ValidationError."""
         with pytest.raises(ValidationError) as exc_info:
             with patch.dict("os.environ", {}, clear=True):
-                SecretKeeper.azure(vault_url=None)
+                GenAIKeys.azure(vault_url=None)
         assert "azure_key_vault_url" in str(exc_info.value)
 
     def test_aws_factory_raises_without_region(self, mock_cloud_backends):
         """Missing AWS_DEFAULT_REGION → pydantic ValidationError."""
         with pytest.raises(ValidationError) as exc_info:
             with patch.dict("os.environ", {}, clear=True):
-                SecretKeeper.aws(region_name=None)
+                GenAIKeys.aws(region_name=None)
         assert "aws_default_region" in str(exc_info.value)
 
     def test_gcp_factory_raises_without_project(self, mock_cloud_backends):
         """Missing GOOGLE_CLOUD_PROJECT → pydantic ValidationError."""
         with pytest.raises(ValidationError) as exc_info:
             with patch.dict("os.environ", {}, clear=True):
-                SecretKeeper.gcp(project_id=None)
+                GenAIKeys.gcp(project_id=None)
         assert "google_cloud_project" in str(exc_info.value)
 
     # --- factory plumbing: correct kwargs reach the plugin ---
@@ -426,7 +426,7 @@ class TestSecretKeeperFactories:
         mock_plugin = MagicMock()
         with patch.object(_az, "AzureKeyVaultPlugin", return_value=mock_plugin) as MockPlugin:
             with patch.dict("os.environ", {}, clear=True):
-                SecretKeeper.azure(vault_url="https://my-vault.vault.azure.net/")
+                GenAIKeys.azure(vault_url="https://my-vault.vault.azure.net/")
             MockPlugin.assert_called_once_with(vault_url="https://my-vault.vault.azure.net/")
 
     def test_azure_factory_passes_none_when_url_omitted(self, mock_cloud_backends):
@@ -436,7 +436,7 @@ class TestSecretKeeperFactories:
         mock_plugin = MagicMock()
         with patch.object(_az, "AzureKeyVaultPlugin", return_value=mock_plugin) as MockPlugin:
             with patch.dict("os.environ", {"AZURE_KEY_VAULT_URL": "https://my-vault.vault.azure.net/"}):
-                SecretKeeper.azure()
+                GenAIKeys.azure()
             MockPlugin.assert_called_once_with(vault_url=None)
 
     def test_aws_factory_with_explicit_region(self, mock_cloud_backends):
@@ -446,7 +446,7 @@ class TestSecretKeeperFactories:
         mock_plugin = MagicMock()
         with patch.object(_aws, "AWSSecretsManagerPlugin", return_value=mock_plugin) as MockPlugin:
             with patch.dict("os.environ", {}, clear=True):
-                SecretKeeper.aws(region_name="eu-west-1")
+                GenAIKeys.aws(region_name="eu-west-1")
             MockPlugin.assert_called_once_with(region_name="eu-west-1", profile_name=None)
 
     def test_aws_factory_passes_none_when_region_omitted(self, mock_cloud_backends):
@@ -456,7 +456,7 @@ class TestSecretKeeperFactories:
         mock_plugin = MagicMock()
         with patch.object(_aws, "AWSSecretsManagerPlugin", return_value=mock_plugin) as MockPlugin:
             with patch.dict("os.environ", {"AWS_DEFAULT_REGION": "us-east-1"}):
-                SecretKeeper.aws()
+                GenAIKeys.aws()
             MockPlugin.assert_called_once_with(region_name=None, profile_name=None)
 
     def test_aws_factory_with_profile_name(self, mock_cloud_backends):
@@ -466,7 +466,7 @@ class TestSecretKeeperFactories:
         mock_plugin = MagicMock()
         with patch.object(_aws, "AWSSecretsManagerPlugin", return_value=mock_plugin) as MockPlugin:
             with patch.dict("os.environ", {"AWS_DEFAULT_REGION": "eu-west-1"}):
-                SecretKeeper.aws(profile_name="my-sso-profile")
+                GenAIKeys.aws(profile_name="my-sso-profile")
             MockPlugin.assert_called_once_with(region_name=None, profile_name="my-sso-profile")
 
     def test_gcp_factory_with_explicit_project(self, mock_cloud_backends):
@@ -476,7 +476,7 @@ class TestSecretKeeperFactories:
         mock_plugin = MagicMock()
         with patch.object(_gcp, "GCPSecretManagerPlugin", return_value=mock_plugin) as MockPlugin:
             with patch.dict("os.environ", {}, clear=True):
-                SecretKeeper.gcp(project_id="my-project")
+                GenAIKeys.gcp(project_id="my-project")
             MockPlugin.assert_called_once_with(project_id="my-project")
 
     def test_gcp_factory_passes_none_when_project_omitted(self, mock_cloud_backends):
@@ -486,7 +486,7 @@ class TestSecretKeeperFactories:
         mock_plugin = MagicMock()
         with patch.object(_gcp, "GCPSecretManagerPlugin", return_value=mock_plugin) as MockPlugin:
             with patch.dict("os.environ", {"GOOGLE_CLOUD_PROJECT": "env-project"}):
-                SecretKeeper.gcp()
+                GenAIKeys.gcp()
             MockPlugin.assert_called_once_with(project_id=None)
 
 
@@ -505,7 +505,7 @@ class TestErrorHandling:
             def get_secret(self, secret_name: str) -> str:
                 raise RuntimeError("Network unreachable")
 
-        sk = SecretKeeper(FailingPlugin())
+        sk = GenAIKeys(FailingPlugin())
         with pytest.raises(RuntimeError, match="Network unreachable"):
             sk.get("ANY_KEY")
 
@@ -516,7 +516,7 @@ class TestErrorHandling:
             def get_secret(self, secret_name: str) -> str:
                 raise PermissionError("Access denied: 403 Forbidden")
 
-        sk = SecretKeeper(ForbiddenPlugin())
+        sk = GenAIKeys(ForbiddenPlugin())
         with pytest.raises(PermissionError, match="403"):
             sk.get("ANY_KEY")
 

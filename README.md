@@ -35,10 +35,10 @@ pip install "genaikeys[all]"
 ## Quick Start
 
 ```python
-from genaikeys import SecretKeeper
+from genaikeys import GenAIKeys
 
 # Azure Key Vault
-sk = SecretKeeper.azure()
+sk = GenAIKeys.azure()
 
 # Retrieve any secret by name
 api_key = sk.get("huggingface-api-key")
@@ -104,9 +104,9 @@ export AZURE_KEY_VAULT_URL="https://my-vault.vault.azure.net/"
 ```
 
 ```python
-from genaikeys import SecretKeeper
+from genaikeys import GenAIKeys
 
-sk = SecretKeeper.azure(vault_url="https://my-vault.vault.azure.net/")
+sk = GenAIKeys.azure(vault_url="https://my-vault.vault.azure.net/")
 key = sk.get("OPENAI_API_KEY")
 ```
 
@@ -152,9 +152,9 @@ export AWS_DEFAULT_REGION="us-east-1"
 ```
 
 ```python
-from genaikeys import SecretKeeper
+from genaikeys import GenAIKeys
 
-sk = SecretKeeper.aws(region_name="us-east-1")
+sk = GenAIKeys.aws(region_name="us-east-1")
 key = sk.get("OPENAI_API_KEY")
 ```
 
@@ -197,9 +197,9 @@ export GOOGLE_CLOUD_PROJECT="my-gcp-project"
 ```
 
 ```python
-from genaikeys import SecretKeeper
+from genaikeys import GenAIKeys
 
-sk = SecretKeeper.gcp(project_id="my-gcp-project")
+sk = GenAIKeys.gcp(project_id="my-gcp-project")
 key = sk.get("OPENAI_API_KEY")
 ```
 
@@ -210,7 +210,7 @@ key = sk.get("OPENAI_API_KEY")
 Secrets are cached in-process for `cache_duration` seconds (default `3600`). To tune:
 
 ```python
-sk = SecretKeeper.azure(cache_duration=300)   # 5-minute TTL
+sk = GenAIKeys.azure(cache_duration=300)   # 5-minute TTL
 
 # Invalidate a single key
 sk.clear("OPENAI_API_KEY")
@@ -226,7 +226,7 @@ sk.clear()
 Implement `SecretManagerPlugin` to add any secret store:
 
 ```python
-from genaikeys import SecretKeeper
+from genaikeys import GenAIKeys
 from genaikeys.plugins import SecretManagerPlugin
 
 class MyPlugin(SecretManagerPlugin):
@@ -234,7 +234,7 @@ class MyPlugin(SecretManagerPlugin):
         # your retrieval logic here
         return "my-secret-value"
 
-sk = SecretKeeper(MyPlugin())
+sk = GenAIKeys(MyPlugin())
 ```
 
 Bundled backends also live in explicit public modules:
@@ -246,7 +246,7 @@ from genaikeys.backends.gcp import GCPSecretManagerPlugin
 ```
 
 Third-party packages can register additional backends under the `genaikeys.backends`
-entry-point group and instantiate them through `SecretKeeper.backend("name", **kwargs)`.
+entry-point group and instantiate them through `GenAIKeys.backend("name", **kwargs)`.
 
 ---
 

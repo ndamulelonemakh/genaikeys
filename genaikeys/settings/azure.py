@@ -6,4 +6,4 @@ class AzureKeyVaultSettings(BaseSettings):
 
     azure_key_vault_url: str
     managed_identity_client_id: str | None = None
-    secretkeeper_debug: bool = False
+    genaikeys_debug: bool = False

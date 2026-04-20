@@ -16,7 +16,7 @@ class AzureKeyVaultPlugin(SecretManagerPlugin):
 
         credential = DefaultAzureCredential(
             managed_identity_client_id=cfg.managed_identity_client_id,
-            exclude_interactive_browser_credential=not cfg.secretkeeper_debug,
+            exclude_interactive_browser_credential=not cfg.genaikeys_debug,
         )
         self.vault_url = cfg.azure_key_vault_url
         self.client = SecretClient(vault_url=self.vault_url, credential=credential)

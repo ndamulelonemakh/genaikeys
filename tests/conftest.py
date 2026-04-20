@@ -34,9 +34,9 @@ def mock_cloud_backends():
         "google.api_core.exceptions": MagicMock(),
     }
     _backend_modules = [
-        "genaikeys._azure_keyvault",
-        "genaikeys._aws_secret_manager",
-        "genaikeys._gcp_secret_manager",
+        "genaikeys.backends.azure",
+        "genaikeys.backends.aws",
+        "genaikeys.backends.gcp",
         "genaikeys.backends.azure",
         "genaikeys.backends.aws",
         "genaikeys.backends.gcp",

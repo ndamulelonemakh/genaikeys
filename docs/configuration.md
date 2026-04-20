@@ -9,9 +9,9 @@ are stored in code.
 ## Azure Key Vault
 
 ```python
-from genaikeys import SecretKeeper
+from genaikeys import GenAIKeys
 
-sk = SecretKeeper.azure(vault_url="https://my-vault.vault.azure.net/")
+sk = GenAIKeys.azure(vault_url="https://my-vault.vault.azure.net/")
 ```
 
 ### Environment Variables
@@ -20,7 +20,7 @@ sk = SecretKeeper.azure(vault_url="https://my-vault.vault.azure.net/")
 |----------|----------|-------------|
 | `AZURE_KEY_VAULT_URL` | Yes | Full URL of your vault |
 | `MANAGED_IDENTITY_CLIENT_ID` | No | Client ID for User-Assigned Managed Identity |
-| `SECRETKEEPER_DEBUG` | No | Enable debug logging (`true`/`false`) |
+| `GENAIKEYS_DEBUG` | No | Enable debug logging (`true`/`false`) |
 
 ### Credential Chain
 
@@ -45,11 +45,11 @@ converts `_` → `-` when querying, so `sk.get("OPENAI_API_KEY")` looks up `OPEN
 ## AWS Secrets Manager
 
 ```python
-from genaikeys import SecretKeeper
+from genaikeys import GenAIKeys
 
-sk = SecretKeeper.aws(region_name="us-east-1")
+sk = GenAIKeys.aws(region_name="us-east-1")
 # Or with SSO profile:
-sk = SecretKeeper.aws(region_name="us-east-1", profile_name="my-sso")
+sk = GenAIKeys.aws(region_name="us-east-1", profile_name="my-sso")
 ```
 
 ### Environment Variables
@@ -76,9 +76,9 @@ Uses the standard [boto3 credential chain](https://docs.aws.amazon.com/sdkref/la
 ## Google Secret Manager
 
 ```python
-from genaikeys import SecretKeeper
+from genaikeys import GenAIKeys
 
-sk = SecretKeeper.gcp(project_id="my-gcp-project")
+sk = GenAIKeys.gcp(project_id="my-gcp-project")
 ```
 
 ### Environment Variables
@@ -105,7 +105,7 @@ Uses [Application Default Credentials (ADC)](https://cloud.google.com/docs/authe
 All backends use in-memory caching with a configurable TTL (default: 3600 seconds):
 
 ```python
-sk = SecretKeeper.azure(cache_duration=300)  # 5-minute TTL
+sk = GenAIKeys.azure(cache_duration=300)  # 5-minute TTL
 
 sk.clear("OPENAI_API_KEY")  # Invalidate one key
 sk.clear()                   # Invalidate all

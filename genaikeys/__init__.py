@@ -1,4 +1,4 @@
-from .keeper import SecretKeeper, SingletonMeta
+from .keeper import GenAIKeys, SingletonMeta
 from .plugins import SecretManagerPlugin
 
-__all__ = ["SecretKeeper", "SecretManagerPlugin", "SingletonMeta"]
+__all__ = ["GenAIKeys", "SecretManagerPlugin", "SingletonMeta"]
