@@ -1,17 +1,30 @@
 [project]
 name = "genaikeys"
-version = "1.0.0"
-description = "A convenient secret retrieval proxy backed by cloud scale secret vaults"
-authors = [{ name = "Ndamulelo Nemakhavhani", email = "ndamulelo@rihonegroup.com" }]
+version = "0.1.0rc3"
+description = "Convenient, extensible API key management for Generative AI applications using cloud secret vaults."
+authors = [{ name = "Ndamulelo Nemakhavhani", email = "hello@ndamulelo.co.za" }]
 license = { text = "MIT" }
 readme = "README.md"
-requires-python = ">=3.10, <4.0"
-keywords = ["secrets", "AI", "cloud", "vault", "security"]
+requires-python = ">=3.11, <4.0"
+keywords = [
+    "generative-ai",
+    "llm",
+    "openai",
+    "secrets",
+    "azure-key-vault",
+    "aws-secrets-manager",
+    "gcp-secret-manager",
+    "security",
+    "key-management",
+    "secret-management",
+    "cloud-secrets",
+    "secure-secrets",
+]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Intended Audience :: Developers",
@@ -69,7 +82,7 @@ omit = ["tests/*"]
 fail_under = 80
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 120
 
 [tool.ruff.lint]

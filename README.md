@@ -4,8 +4,21 @@
 [![CI](https://github.com/ndamulelonemakh/genaikeys/actions/workflows/ci.yml/badge.svg)](https://github.com/ndamulelonemakh/genaikeys/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-> Secure API key management for Generative AI applications.
+> Convenient, extensible API key management for Generative AI applications using cloud secret vaults.
 > One Python API across **Azure Key Vault**, **AWS Secrets Manager**, and **Google Secret Manager**.
+
+```mermaid
+flowchart LR
+    App[Your AI App] -->|sk.get()| Cache{TTL Cache}
+    
+    subgraph GenAIKeys
+        Cache
+    end
+    
+    Cache -->|Cache miss| Azure[(Azure Key Vault)]
+    Cache -->|Cache miss| AWS[(AWS Secrets)]
+    Cache -->|Cache miss| GCP[(GCP Secret Manager)]
+```
 
 ## Why GenAIKeys?
 
