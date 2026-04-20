@@ -7,7 +7,8 @@ GenAIKeys provides a plugin interface so you can integrate any secret store.
 Subclass `SecretManagerPlugin` and implement the `get_secret` method:
 
 ```python
-from genaikeys import SecretKeeper, SecretManagerPlugin
+from genaikeys import SecretKeeper
+from genaikeys.plugins import SecretManagerPlugin
 
 
 class HashiCorpVaultPlugin(SecretManagerPlugin):
@@ -70,3 +71,9 @@ Your custom plugin automatically gets in-memory caching when passed to `SecretKe
 # Cache secrets for 10 minutes
 sk = SecretKeeper(MyPlugin(), cache_duration=600)
 ```
+
+## Backend Discovery
+
+The built-in backends live under `genaikeys.backends`. Third-party packages can
+register their own backend class in the `genaikeys.backends` entry-point group
+and users can instantiate it with `SecretKeeper.backend("your-backend", **kwargs)`.

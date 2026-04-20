@@ -37,6 +37,9 @@ def mock_cloud_backends():
         "genaikeys._azure_keyvault",
         "genaikeys._aws_secret_manager",
         "genaikeys._gcp_secret_manager",
+        "genaikeys.backends.azure",
+        "genaikeys.backends.aws",
+        "genaikeys.backends.gcp",
     ]
 
     # Remove any previously cached backend modules so they re-import cleanly.

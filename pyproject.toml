@@ -27,6 +27,11 @@ dependencies = [
 [project.urls]
 Repository = "https://github.com/ndamulelonemakh/genaikeys"
 
+[project.entry-points."genaikeys.backends"]
+azure = "genaikeys.backends.azure:AzureKeyVaultPlugin"
+aws = "genaikeys.backends.aws:AWSSecretsManagerPlugin"
+gcp = "genaikeys.backends.gcp:GCPSecretManagerPlugin"
+
 [project.optional-dependencies]
 aws = ["boto3"]
 gcp = ["google-cloud-secret-manager"]

@@ -55,18 +55,18 @@ import pytest
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _require_env(*names: str, mark: str) -> None:
     """Skip the test if any of *names* is unset."""
     missing = [n for n in names if not os.environ.get(n)]
     if missing:
-        pytest.skip(
-            f"[{mark}] required env var(s) not set: {', '.join(missing)}"
-        )
+        pytest.skip(f"[{mark}] required env var(s) not set: {', '.join(missing)}")
 
 
 # ---------------------------------------------------------------------------
 # AWS Secrets Manager
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.e2e
 @pytest.mark.aws
@@ -84,7 +84,8 @@ class TestAWSE2E:
 
     @pytest.fixture
     def plugin(self):
-        from genaikeys._aws_secret_manager import AWSSecretsManagerPlugin
+        from genaikeys.backends.aws import AWSSecretsManagerPlugin
+
         return AWSSecretsManagerPlugin(
             region_name=os.environ["AWS_DEFAULT_REGION"],
             profile_name=os.environ.get("AWS_PROFILE"),
@@ -110,14 +111,14 @@ class TestAWSE2E:
         secrets = plugin.list_secrets()
         assert isinstance(secrets, list)
         assert secret_name in secrets, (
-            f"{secret_name!r} not found in list_secrets() — "
-            "check IAM permissions (secretsmanager:ListSecrets)"
+            f"{secret_name!r} not found in list_secrets() — check IAM permissions (secretsmanager:ListSecrets)"
         )
 
 
 # ---------------------------------------------------------------------------
 # Azure Key Vault
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.e2e
 @pytest.mark.azure
@@ -138,7 +139,8 @@ class TestAzureE2E:
 
     @pytest.fixture
     def plugin(self):
-        from genaikeys._azure_keyvault import AzureKeyVaultPlugin
+        from genaikeys.backends.azure import AzureKeyVaultPlugin
+
         return AzureKeyVaultPlugin(vault_url=os.environ["AZURE_KEY_VAULT_URL"])
 
     def test_get_secret(self, plugin):
@@ -161,14 +163,14 @@ class TestAzureE2E:
         secrets = plugin.list_secrets()
         assert isinstance(secrets, list)
         assert secret_name in secrets, (
-            f"{secret_name!r} not found in list_secrets() — "
-            "check Key Vault RBAC (Key Vault Secrets User role)"
+            f"{secret_name!r} not found in list_secrets() — check Key Vault RBAC (Key Vault Secrets User role)"
         )
 
 
 # ---------------------------------------------------------------------------
 # GCP Secret Manager
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.e2e
 @pytest.mark.gcp
@@ -183,16 +185,14 @@ class TestGCPE2E:
     def _check_prereqs(self):
         pytest.importorskip(
             "google.cloud.secretmanager_v1",
-            reason=(
-                "google-cloud-secret-manager not installed "
-                "(pip install genaikeys[gcp])"
-            ),
+            reason=("google-cloud-secret-manager not installed (pip install genaikeys[gcp])"),
         )
         _require_env("GOOGLE_CLOUD_PROJECT", "E2E_GCP_SECRET_NAME", mark="gcp")
 
     @pytest.fixture
     def plugin(self):
-        from genaikeys._gcp_secret_manager import GCPSecretManagerPlugin
+        from genaikeys.backends.gcp import GCPSecretManagerPlugin
+
         return GCPSecretManagerPlugin(project_id=os.environ["GOOGLE_CLOUD_PROJECT"])
 
     def test_get_secret(self, plugin):
@@ -215,6 +215,5 @@ class TestGCPE2E:
         secrets = plugin.list_secrets()
         assert isinstance(secrets, list)
         assert secret_name in secrets, (
-            f"{secret_name!r} not found in list_secrets() — "
-            "check IAM binding (roles/secretmanager.viewer)"
+            f"{secret_name!r} not found in list_secrets() — check IAM binding (roles/secretmanager.viewer)"
         )

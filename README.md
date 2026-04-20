@@ -13,7 +13,7 @@ storing the keys in cloud secret vaults like [Azure Key Vault](https://azure.mic
 - Secure API key management for GenAI services — no hard-coded credentials
 - Built-in support for OpenAI, Anthropic, and Google Gemini convenience methods
 - In-memory caching with configurable TTL to minimise vault API calls
-- Extensible plugin architecture for custom secret backends
+- Extensible package layout with public `plugins` and `backends` subpackages
 - Thread-safe by design
 
 ## Installation
@@ -226,7 +226,8 @@ sk.clear()
 Implement `SecretManagerPlugin` to add any secret store:
 
 ```python
-from genaikeys import SecretKeeper, SecretManagerPlugin
+from genaikeys import SecretKeeper
+from genaikeys.plugins import SecretManagerPlugin
 
 class MyPlugin(SecretManagerPlugin):
     def get_secret(self, secret_name: str) -> str:
@@ -235,6 +236,17 @@ class MyPlugin(SecretManagerPlugin):
 
 sk = SecretKeeper(MyPlugin())
 ```
+
+Bundled backends also live in explicit public modules:
+
+```python
+from genaikeys.backends.aws import AWSSecretsManagerPlugin
+from genaikeys.backends.azure import AzureKeyVaultPlugin
+from genaikeys.backends.gcp import GCPSecretManagerPlugin
+```
+
+Third-party packages can register additional backends under the `genaikeys.backends`
+entry-point group and instantiate them through `SecretKeeper.backend("name", **kwargs)`.
 
 ---
 

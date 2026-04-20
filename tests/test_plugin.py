@@ -1,8 +1,11 @@
 """Tests for the SecretManagerPlugin abstract interface."""
 
+from unittest.mock import patch
+
 import pytest
 
 from genaikeys import SecretManagerPlugin
+from genaikeys.plugins import available_backends, load_backend
 
 
 class TestPluginInterface:
@@ -84,3 +87,27 @@ class TestPluginInterface:
 
         with pytest.raises(KeyError, match="No such secret"):
             StrictPlugin().get_secret("MISSING")
+
+    def test_plugins_package_re_exports_base_interface(self):
+        assert SecretManagerPlugin is load_backend.__globals__["SecretManagerPlugin"]
+
+    def test_available_backends_lists_entry_points(self):
+        mock_entry_point = type("EntryPoint", (), {"name": "demo"})()
+
+        with patch("genaikeys.plugins.registry.entry_points", return_value=[mock_entry_point]):
+            assert available_backends() == ["demo"]
+
+    def test_load_backend_resolves_registered_backend(self):
+        class DemoPlugin(SecretManagerPlugin):
+            def get_secret(self, secret_name: str) -> str:
+                return secret_name
+
+        class EntryPoint:
+            name = "demo"
+
+            @staticmethod
+            def load():
+                return DemoPlugin
+
+        with patch("genaikeys.plugins.registry.entry_points", return_value=[EntryPoint()]):
+            assert load_backend("demo") is DemoPlugin

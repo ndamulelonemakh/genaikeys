@@ -8,13 +8,13 @@ import pytest
 from pydantic import ValidationError
 
 from genaikeys import SecretKeeper, SecretManagerPlugin
-from genaikeys._secret_manager_default import InMemorySecretManager
-from genaikeys._settings import AWSSettings, AzureKeyVaultSettings, GCPSettings
-
+from genaikeys.cache import InMemorySecretManager
+from genaikeys.settings import AWSSettings, AzureKeyVaultSettings, GCPSettings
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
 # ---------------------------------------------------------------------------
+
 
 class _FakePlugin(SecretManagerPlugin):
     """In-process plugin that returns configurable secrets."""
@@ -40,6 +40,7 @@ class _FakePlugin(SecretManagerPlugin):
 def reset_singleton():
     """Reset the SecretKeeper singleton between tests."""
     from genaikeys import SingletonMeta
+
     SingletonMeta._instances.clear()
     yield
     SingletonMeta._instances.clear()
@@ -48,6 +49,7 @@ def reset_singleton():
 # ---------------------------------------------------------------------------
 # Pydantic settings tests
 # ---------------------------------------------------------------------------
+
 
 class TestAzureKeyVaultSettings:
     def test_reads_from_env(self):
@@ -63,11 +65,14 @@ class TestAzureKeyVaultSettings:
         assert cfg.azure_key_vault_url == "https://override.azure.net/"
 
     def test_optional_fields(self):
-        with patch.dict("os.environ", {
-            "AZURE_KEY_VAULT_URL": "https://vault.azure.net/",
-            "MANAGED_IDENTITY_CLIENT_ID": "my-client-id",
-            "SECRETKEEPER_DEBUG": "1",
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "AZURE_KEY_VAULT_URL": "https://vault.azure.net/",
+                "MANAGED_IDENTITY_CLIENT_ID": "my-client-id",
+                "SECRETKEEPER_DEBUG": "1",
+            },
+        ):
             cfg = AzureKeyVaultSettings()
         assert cfg.managed_identity_client_id == "my-client-id"
         assert cfg.secretkeeper_debug is True
@@ -79,10 +84,13 @@ class TestAzureKeyVaultSettings:
         assert "azure_key_vault_url" in str(exc_info.value)
 
     def test_extra_env_vars_ignored(self):
-        with patch.dict("os.environ", {
-            "AZURE_KEY_VAULT_URL": "https://vault.azure.net/",
-            "SOME_RANDOM_VAR": "noise",
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "AZURE_KEY_VAULT_URL": "https://vault.azure.net/",
+                "SOME_RANDOM_VAR": "noise",
+            },
+        ):
             cfg = AzureKeyVaultSettings()  # should not raise
         assert cfg.azure_key_vault_url == "https://vault.azure.net/"
 
@@ -142,10 +150,12 @@ class TestGCPSettings:
 # AzureKeyVaultPlugin – name normalisation
 # ---------------------------------------------------------------------------
 
+
 class TestAzureKeyVaultPlugin:
     def test_exists_normalises_underscores_to_dashes(self, mock_cloud_backends):
         """exists('MY_SECRET') must match 'my-secret' returned by list_secrets."""
-        import genaikeys._azure_keyvault as _az
+        import genaikeys.backends.azure as _az
+
         mock_client = MagicMock()
         # list_properties_of_secrets returns names with dashes (Azure KV format)
         mock_secret = MagicMock()
@@ -156,8 +166,8 @@ class TestAzureKeyVaultPlugin:
             plugin = _az.AzureKeyVaultPlugin()
         plugin.client = mock_client
 
-        assert plugin.exists("my_secret") is True   # underscore input → dash lookup
-        assert plugin.exists("my-secret") is True   # dash input → dash lookup (unchanged)
+        assert plugin.exists("my_secret") is True  # underscore input → dash lookup
+        assert plugin.exists("my-secret") is True  # dash input → dash lookup (unchanged)
         assert plugin.exists("OTHER_SECRET") is False
 
 
@@ -165,10 +175,12 @@ class TestAzureKeyVaultPlugin:
 # AWSSecretsManagerPlugin – boto3.Session wiring
 # ---------------------------------------------------------------------------
 
+
 class TestAWSSecretsManagerPlugin:
     def test_session_created_without_profile(self, mock_cloud_backends):
         """Without a profile, Session is created with profile_name=None."""
-        import genaikeys._aws_secret_manager as _aws
+        import genaikeys.backends.aws as _aws
+
         mock_session = MagicMock()
         mock_session.client.return_value = MagicMock()
         with patch.object(_aws.boto3, "Session", return_value=mock_session) as MockSession:
@@ -179,7 +191,8 @@ class TestAWSSecretsManagerPlugin:
 
     def test_session_created_with_profile(self, mock_cloud_backends):
         """With a profile, Session is created with the given profile_name (SSO support)."""
-        import genaikeys._aws_secret_manager as _aws
+        import genaikeys.backends.aws as _aws
+
         mock_session = MagicMock()
         mock_session.client.return_value = MagicMock()
         with patch.object(_aws.boto3, "Session", return_value=mock_session) as MockSession:
@@ -189,7 +202,8 @@ class TestAWSSecretsManagerPlugin:
 
     def test_profile_from_env_var(self, mock_cloud_backends):
         """AWS_PROFILE env var is picked up via AWSSettings.aws_profile."""
-        import genaikeys._aws_secret_manager as _aws
+        import genaikeys.backends.aws as _aws
+
         mock_session = MagicMock()
         mock_session.client.return_value = MagicMock()
         with patch.object(_aws.boto3, "Session", return_value=mock_session) as MockSession:
@@ -201,6 +215,7 @@ class TestAWSSecretsManagerPlugin:
 # ---------------------------------------------------------------------------
 # InMemorySecretManager tests
 # ---------------------------------------------------------------------------
+
 
 class TestInMemorySecretManager:
     def test_get_secret_returns_value(self):
@@ -271,6 +286,7 @@ class TestInMemorySecretManager:
 # SecretKeeper tests
 # ---------------------------------------------------------------------------
 
+
 class TestSecretKeeper:
     def test_get_returns_secret(self):
         plugin = _FakePlugin({"MY_SECRET": "abc123"})
@@ -284,6 +300,7 @@ class TestSecretKeeper:
 
     def test_get_does_not_store_in_environ(self):
         import os
+
         plugin = _FakePlugin({"MY_SECRET": "abc123"})
         sk = SecretKeeper(plugin)
         sk.get("MY_SECRET")
@@ -339,6 +356,7 @@ class TestSecretKeeper:
 # SecretManagerPlugin base class tests
 # ---------------------------------------------------------------------------
 
+
 class TestSecretManagerPlugin:
     def test_exists_raises_not_implemented(self):
         class Minimal(SecretManagerPlugin):
@@ -374,6 +392,7 @@ class TestSecretManagerPlugin:
 # up the mock via its lazy ``from ._xxx import Plugin`` import.
 # ---------------------------------------------------------------------------
 
+
 class TestSecretKeeperFactories:
     # --- missing config → ValidationError ---
 
@@ -402,7 +421,8 @@ class TestSecretKeeperFactories:
 
     def test_azure_factory_with_explicit_url(self, mock_cloud_backends):
         """Explicit vault_url is forwarded to AzureKeyVaultPlugin unchanged."""
-        import genaikeys._azure_keyvault as _az
+        import genaikeys.backends.azure as _az
+
         mock_plugin = MagicMock()
         with patch.object(_az, "AzureKeyVaultPlugin", return_value=mock_plugin) as MockPlugin:
             with patch.dict("os.environ", {}, clear=True):
@@ -411,7 +431,8 @@ class TestSecretKeeperFactories:
 
     def test_azure_factory_passes_none_when_url_omitted(self, mock_cloud_backends):
         """When vault_url is omitted the factory passes None; pydantic reads the env var."""
-        import genaikeys._azure_keyvault as _az
+        import genaikeys.backends.azure as _az
+
         mock_plugin = MagicMock()
         with patch.object(_az, "AzureKeyVaultPlugin", return_value=mock_plugin) as MockPlugin:
             with patch.dict("os.environ", {"AZURE_KEY_VAULT_URL": "https://my-vault.vault.azure.net/"}):
@@ -420,7 +441,8 @@ class TestSecretKeeperFactories:
 
     def test_aws_factory_with_explicit_region(self, mock_cloud_backends):
         """Explicit region_name is forwarded to AWSSecretsManagerPlugin unchanged."""
-        import genaikeys._aws_secret_manager as _aws
+        import genaikeys.backends.aws as _aws
+
         mock_plugin = MagicMock()
         with patch.object(_aws, "AWSSecretsManagerPlugin", return_value=mock_plugin) as MockPlugin:
             with patch.dict("os.environ", {}, clear=True):
@@ -429,7 +451,8 @@ class TestSecretKeeperFactories:
 
     def test_aws_factory_passes_none_when_region_omitted(self, mock_cloud_backends):
         """When region_name is omitted the factory passes None; pydantic reads the env var."""
-        import genaikeys._aws_secret_manager as _aws
+        import genaikeys.backends.aws as _aws
+
         mock_plugin = MagicMock()
         with patch.object(_aws, "AWSSecretsManagerPlugin", return_value=mock_plugin) as MockPlugin:
             with patch.dict("os.environ", {"AWS_DEFAULT_REGION": "us-east-1"}):
@@ -438,7 +461,8 @@ class TestSecretKeeperFactories:
 
     def test_aws_factory_with_profile_name(self, mock_cloud_backends):
         """profile_name is forwarded to AWSSecretsManagerPlugin for SSO support."""
-        import genaikeys._aws_secret_manager as _aws
+        import genaikeys.backends.aws as _aws
+
         mock_plugin = MagicMock()
         with patch.object(_aws, "AWSSecretsManagerPlugin", return_value=mock_plugin) as MockPlugin:
             with patch.dict("os.environ", {"AWS_DEFAULT_REGION": "eu-west-1"}):
@@ -447,7 +471,8 @@ class TestSecretKeeperFactories:
 
     def test_gcp_factory_with_explicit_project(self, mock_cloud_backends):
         """Explicit project_id is forwarded to GCPSecretManagerPlugin unchanged."""
-        import genaikeys._gcp_secret_manager as _gcp
+        import genaikeys.backends.gcp as _gcp
+
         mock_plugin = MagicMock()
         with patch.object(_gcp, "GCPSecretManagerPlugin", return_value=mock_plugin) as MockPlugin:
             with patch.dict("os.environ", {}, clear=True):
@@ -456,7 +481,8 @@ class TestSecretKeeperFactories:
 
     def test_gcp_factory_passes_none_when_project_omitted(self, mock_cloud_backends):
         """When project_id is omitted the factory passes None; pydantic reads the env var."""
-        import genaikeys._gcp_secret_manager as _gcp
+        import genaikeys.backends.gcp as _gcp
+
         mock_plugin = MagicMock()
         with patch.object(_gcp, "GCPSecretManagerPlugin", return_value=mock_plugin) as MockPlugin:
             with patch.dict("os.environ", {"GOOGLE_CLOUD_PROJECT": "env-project"}):
@@ -467,6 +493,7 @@ class TestSecretKeeperFactories:
 # ---------------------------------------------------------------------------
 # Error handling tests
 # ---------------------------------------------------------------------------
+
 
 class TestErrorHandling:
     """Verify graceful behaviour when the underlying plugin raises errors."""
