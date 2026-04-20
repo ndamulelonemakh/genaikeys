@@ -40,6 +40,9 @@ dependencies = [
 [project.urls]
 Repository = "https://github.com/ndamulelonemakh/genaikeys"
 
+[project.scripts]
+genaikeys = "genaikeys.cli:main"
+
 [project.entry-points."genaikeys.backends"]
 azure = "genaikeys.backends.azure:AzureKeyVaultPlugin"
 aws = "genaikeys.backends.aws:AWSSecretsManagerPlugin"

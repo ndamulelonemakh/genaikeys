@@ -68,8 +68,19 @@ Working examples for each cloud live in [`examples/`](examples/).
 Full docs are published at **<https://ndamulelonemakh.github.io/genaikeys/>**:
 
 - [Configuration & authentication](docs/configuration.md) — Azure, AWS, GCP setup, credential chains, IAM/RBAC requirements.
+- [CLI](docs/cli.md) — populate `.env` files from a vault.
 - [Custom backends](docs/custom-backends.md) — implement your own secret store.
 - [Logging](docs/logging.md) — enable, disable, route to a custom handler.
+
+## CLI
+
+Populate a `.env` (or `.env.example`) file with values from your vault:
+
+```bash
+genaikeys fill .env --keyvault https://my-kv.vault.azure.net
+```
+
+Only empty values are filled by default; comments and existing values are preserved. See [docs/cli.md](docs/cli.md) for all options (`--backend`, `--overwrite`, `--dry-run`, `--strict`, `--output`, …).
 
 ## Caching
 
