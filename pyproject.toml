@@ -1,6 +1,6 @@
 [project]
 name = "genaikeys"
-version = "0.1.0rc4"
+version = "0.1.0rc5"
 description = "Convenient, extensible API key management for Generative AI applications using cloud secret vaults."
 authors = [{ name = "Ndamulelo Nemakhavhani", email = "hello@ndamulelo.co.za" }]
 license = { text = "MIT" }
