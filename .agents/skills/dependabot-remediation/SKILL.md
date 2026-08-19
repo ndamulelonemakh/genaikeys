@@ -141,7 +141,7 @@ Run dependency updates and tests in full isolation before merging or applying on
 #### A. Interactive Quarantine via Dev Container
 Open the repository in VS Code / IDE with Remote - Containers:
 - Command: `Dev Containers: Reopen in Container`
-- Defined in [.devcontainer/devcontainer.json](file:///Users/ndamulelonemakhavhani/projects/opensource/genaikeys/.devcontainer/devcontainer.json) and [.devcontainer/Dockerfile](file:///Users/ndamulelonemakhavhani/projects/opensource/genaikeys/.devcontainer/Dockerfile)
+- Defined in `.devcontainer/devcontainer.json` and `.devcontainer/Dockerfile`
 - All build, lockfile, and test commands run under the non-root `vscode` user with host keyring access disabled (`PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring`).
 
 #### B. Headless One-Shot Quarantine Check
