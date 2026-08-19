@@ -31,10 +31,10 @@ classifiers = [
     "Topic :: Security",
 ]
 dependencies = [
-    "cryptography>=46.0.0",
+    "cryptography>=50.0.0",
     "azure-identity>=1.25.0",
     "azure-keyvault-secrets>=4.10.0",
-    "pydantic-settings>=2.13.0",
+    "pydantic-settings>=2.14.2",
 ]
 
 [project.urls]
